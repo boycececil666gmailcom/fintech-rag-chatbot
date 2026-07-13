@@ -9,7 +9,7 @@ def test_health_check():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
-    assert response.json()["model"] == "qwen2.5:1.5b"
+    assert response.json()["model"] == "qwen2.5:7b"
 
 @patch("src.main.llm")
 def test_query_no_search(mock_llm):

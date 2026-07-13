@@ -4,7 +4,7 @@
 if [ -f ".env" ]; then
     export $(grep -v '^#' .env | xargs)
 fi
-OLLAMA_MODEL=${OLLAMA_MODEL:-"qwen2.5:1.5b"}
+OLLAMA_MODEL=${OLLAMA_MODEL:-"qwen2.5:7b"}
 
 echo "========================================================"
 echo "[1/3] Setting Up Python Virtual Environment"
