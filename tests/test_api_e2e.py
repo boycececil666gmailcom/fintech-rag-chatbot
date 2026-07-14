@@ -21,7 +21,10 @@ pytestmark = pytest.mark.skipif(
 
 def test_e2e_query_no_search():
     """Verify factual query that does not require search is resolved directly."""
-    response = client.post("/query", json={"message": "What is the capital of France?"})
+    response = client.post(
+        "/query",
+        json={"message": "What is the capital of France?", "history": []}
+    )
     assert response.status_code == 200
     res_data = response.json()
     assert "response" in res_data
@@ -29,7 +32,10 @@ def test_e2e_query_no_search():
 
 def test_e2e_query_with_search():
     """Verify query that requires search is successfully completed."""
-    response = client.post("/query", json={"message": "Who won the most recent Super Bowl?"})
+    response = client.post(
+        "/query",
+        json={"message": "Who won the most recent Super Bowl?", "history": []}
+    )
     assert response.status_code == 200
     res_data = response.json()
     assert "response" in res_data
