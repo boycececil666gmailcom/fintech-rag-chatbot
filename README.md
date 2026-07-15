@@ -2,9 +2,64 @@
 
 A modular, stateless local Retrieval-Augmented Generation (RAG) backend utilizing a local Ollama instance, Chroma Vector Database for local document storage, and DuckDuckGo for public internet search context.
 
+## Features & API Endpoints
+
+The backend exposes two main HTTP POST endpoints under FastAPI:
+
+- **`POST /ingest`**: Accepts raw text documents, splits them into manageable chunks, generates vector embeddings, and stores them in the local Chroma database.
+- **`POST /query`**: Accepts user queries and history. An LLM agent determines if the answer requires local document retrieval, a web search, or direct execution.
+
+---
+
 ## Architecture & Logic Flow
 
-The system operates as a FastAPI web application. When a query is received, the Ollama model is invoked with tool-calling capabilities. It dynamically decides whether it needs to query the local vector database, perform a public web search, or answer directly.
+Below is a high-level flowchart showing how ingestion and querying are routed through the FastAPI backend:
+
+```mermaid
+graph TD
+    Server[FastAPI Server]
+    
+    %% Ingest path
+    Server -->|POST /ingest| Ingest[Document Ingestion Path]
+    Ingest --> Split[RecursiveCharacterTextSplitter]
+    Split --> Embed[Ollama Embeddings]
+    Embed --> DB[(Chroma Vector DB)]
+
+    %% Query path
+    Server -->|POST /query| Query[Query Processing Path]
+    Query --> Router{Ollama Agent Router}
+    Router -->|Local Context| Local[Local DB Retrieval]
+    Router -->|Real-Time Context| Web[Web Search]
+    Router -->|Direct Generation| Direct[Direct Answer]
+    
+    Local -.-> DB
+    
+    Local --> Synth[Final Synthesis]
+    Web --> Synth
+    Direct --> Synth
+```
+
+### 1. Ingestion Path
+
+The ingestion pipeline converts plain text into queryable semantic chunks inside the Chroma Vector Database.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as Client / Ingestion Script
+    participant App as FastAPI Server (main.py)
+    participant VectorStore as Chroma Vector DB
+
+    Client->>App: POST /ingest {"text": "...", "metadata": {...}}
+    Note over App: Chunks text using<br/>RecursiveCharacterTextSplitter
+    App->>VectorStore: Add document chunks with embeddings
+    VectorStore-->>App: Confirmation
+    App-->>Client: Response {"status": "success", "chunk_count": X}
+```
+
+### 2. Query Path
+
+When a query is received, the Ollama model is invoked with tool-calling capabilities. It dynamically decides whether it needs to query the local vector database, perform a public web search, or answer directly.
 
 ```mermaid
 sequenceDiagram

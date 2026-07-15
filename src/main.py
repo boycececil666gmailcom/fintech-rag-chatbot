@@ -35,6 +35,8 @@ async def ingest_document(request: IngestRequest):
         chunk_count = db.add_document_text(request.text, request.metadata)
         return IngestResponse(status="success", chunk_count=chunk_count)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/query", response_model=QueryResponse)
@@ -168,4 +170,4 @@ async def health_check():
     }
 
 if __name__ == "__main__":
-    uvicorn.run("src/main:app", host=HOST, port=PORT, reload=True)
+    uvicorn.run("src.main:app", host=HOST, port=PORT, reload=True)

@@ -3,7 +3,7 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from src.config import OLLAMA_MODEL, CHROMA_PERSIST_DIR
+from src.config import OLLAMA_EMBED_MODEL, CHROMA_PERSIST_DIR
 
 # Ensure database directory exists
 os.makedirs(CHROMA_PERSIST_DIR, exist_ok=True)
@@ -17,7 +17,7 @@ vector_store = None
 init_error = None
 
 try:
-    embeddings = OllamaEmbeddings(model=OLLAMA_MODEL)
+    embeddings = OllamaEmbeddings(model=OLLAMA_EMBED_MODEL)
     vector_store = Chroma(
         persist_directory=CHROMA_PERSIST_DIR,
         embedding_function=embeddings,
