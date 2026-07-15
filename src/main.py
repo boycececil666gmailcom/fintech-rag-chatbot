@@ -11,10 +11,10 @@ from src.config import OLLAMA_MODEL, OLLAMA_TEMPERATURE, HOST, PORT
 
 # Import modular components
 import src.vector_db as db
-from src.tools import retrieve_local_documents, web_search, search_tool
+from src.tools import retrieve_local_documents
 from src.models import MessageSchema, QueryRequest, QueryResponse, IngestRequest, IngestResponse
 
-app = FastAPI(title="Stateless Ollama Vector RAG Backend")
+app = FastAPI(title="Fintech RAG Chatbot")
 
 # Initialize LLM & Tool binding
 llm = None
@@ -22,7 +22,7 @@ llm_with_tools = None
 
 try:
     llm = ChatOllama(model=OLLAMA_MODEL, temperature=OLLAMA_TEMPERATURE)
-    llm_with_tools = llm.bind_tools([retrieve_local_documents, web_search])
+    llm_with_tools = llm.bind_tools([retrieve_local_documents])
 except Exception as e:
     print(f"Error initializing ChatOllama model: {e}")
 
@@ -58,11 +58,11 @@ async def run_query(request: QueryRequest):
         
         messages = [
             SystemMessage(content=(
-                "You are an assistant with access to a local vector document database and a web search tool.\n"
+                "You are a customer service assistant for a Fintech RAG Chatbot.\n"
+                "You have access to a local vector document database containing private platform documentation, FAQs, and product guides.\n"
                 "You must route your query processing through one of these actions:\n"
-                "- If the query refers to private documentation, workspace context, or internal topics (like 'Supernova'), you MUST call 'retrieve_local_documents'.\n"
-                "- If the query refers to real-time, current events, weather, or active public news, you MUST call 'web_search'.\n"
-                "- Otherwise (greetings, general math, standard facts, code snippets), answer directly without any tool calls."
+                "- If the user query is about bank account terms, SaaS platform usage, account creation, transfers, fees, features, security, internal guidelines, or specific workspace facts, you MUST call 'retrieve_local_documents'.\n"
+                "- If the query is unrelated to the Fintech SaaS platform, you must answer directly and politely refuse to respond, stating that you can only help with inquiries related to the Fintech RAG Chatbot."
             ))
         ]
         
@@ -96,7 +96,7 @@ async def run_query(request: QueryRequest):
                 tool_args = tool_call["args"]
                 
                 # Safeguard 1: Hallucinated / Invalid Tool Name check
-                if tool_name not in ["retrieve_local_documents", "web_search"]:
+                if tool_name not in ["retrieve_local_documents"]:
                     print(f"Warning: Hallucinated tool call '{tool_name}' detected. Triggering safeguard fallback.")
                     fallback_triggered = True
                     continue
@@ -116,15 +116,6 @@ async def run_query(request: QueryRequest):
                 try:
                     if tool_name == "retrieve_local_documents":
                         tool_output = retrieve_local_documents.invoke(q_val)
-                        
-                        # Safeguard 3: Similarity score empty gate check
-                        if "No matching local documents found." in tool_output or "Error" in tool_output:
-                            print("Warning: Local database did not return matches. Falling back to public Web Search.")
-                            fallback_triggered = True
-                            tool_output = web_search.invoke(q_val)
-                            tool_calls_executed.append("web_search")
-                    else:
-                        tool_output = web_search.invoke(q_val)
                 except Exception as tool_err:
                     print(f"Tool execution failed: {tool_err}. Triggering direct fallback.")
                     fallback_triggered = True
@@ -165,7 +156,7 @@ async def health_check():
     return {
         "status": "ok",
         "model": OLLAMA_MODEL,
-        "search": "DuckDuckGo",
+        "platform": "Fintech RAG Chatbot",
         "vector_store": vector_ok
     }
 

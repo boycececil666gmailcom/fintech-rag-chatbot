@@ -7,9 +7,9 @@ fi
 OLLAMA_MODEL=${OLLAMA_MODEL:-"qwen2.5:7b"}
 OLLAMA_EMBED_MODEL=${OLLAMA_EMBED_MODEL:-"nomic-embed-text"}
 
-echo -e "\n\033[1;96m========================================================\033[0m"
-echo -e "\033[1;92m>>> [1/3] [$(basename "$0")] Setting Up Python Virtual Environment\033[0m"
-echo -e "\033[1;96m========================================================\033[0m\n"
+echo "========================================================"
+echo "[1/3] Setting Up Python Virtual Environment"
+echo "========================================================"
 
 if [ ! -d "venv" ]; then
     echo "Creating virtual environment..."
@@ -25,9 +25,9 @@ else
     source venv/bin/activate
 fi
 
-echo -e "\n\033[1;96m========================================================\033[0m"
-echo -e "\033[1;92m>>> [2/3] [$(basename "$0")] Checking Ollama Server and Model\033[0m"
-echo -e "\033[1;96m========================================================\033[0m\n"
+echo "========================================================"
+echo "[2/3] Checking Ollama Server and Model"
+echo "========================================================"
 
 # Verify Ollama is running
 echo "Checking if Ollama is running..."
@@ -67,9 +67,9 @@ if ! curl -s http://localhost:11434/api/tags | grep -q "\"$OLLAMA_EMBED_MODEL\""
 fi
 echo "Model '$OLLAMA_EMBED_MODEL' is ready."
 
-echo -e "\n\033[1;96m========================================================\033[0m"
-echo -e "\033[1;92m>>> [3/3] [$(basename "$0")] Installing Dependencies and Starting Server\033[0m"
-echo -e "\033[1;96m========================================================\033[0m\n"
+echo "========================================================"
+echo "[3/3] Installing Dependencies and Starting Server"
+echo "========================================================"
 
 pip install -r requirements.txt
 

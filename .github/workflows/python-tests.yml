@@ -1,4 +1,4 @@
-name: Python application tests
+name: Fintech RAG Chatbot CI
 
 on:
   push:

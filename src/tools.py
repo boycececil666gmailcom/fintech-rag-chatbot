@@ -1,14 +1,12 @@
 from typing import List
 from langchain_core.tools import tool
-from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_core.documents import Document
 import src.vector_db as db
 from langchain_community.retrievers import BM25Retriever
 from langchain_community.document_compressors.flashrank_rerank import FlashrankRerank
 from src.rrf import reciprocal_rank_fusion
 
-# Setup search tool
-search_tool = DuckDuckGoSearchRun()
+# Setup tools
 
 def get_all_documents() -> List[Document]:
     """Helper to fetch all documents stored in the Chroma vector database."""
@@ -67,11 +65,4 @@ def retrieve_local_documents(query: str) -> str:
         traceback.print_exc()
         return f"Error querying local documents: {str(e)}"
 
-@tool
-def web_search(query: str) -> str:
-    """Search the public internet for current events, today's weather, real-time news,
-    active figures, or public facts."""
-    try:
-        return search_tool.invoke(query)
-    except Exception as e:
-        return f"Error performing web search: {str(e)}"
+# Web search removed as chatbot focuses strictly on local context retrieval

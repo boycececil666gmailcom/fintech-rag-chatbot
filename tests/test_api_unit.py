@@ -22,7 +22,7 @@ def test_ingest_endpoint(mock_vector_store):
     response = client.post(
         "/ingest",
         json={
-            "text": "Hello World. This is project Supernova 9.",
+            "text": "Welcome to Fintech SaaS platform. You can configure multi-factor authentication for withdrawals.",
             "metadata": {"source": "test"}
         }
     )
@@ -33,22 +33,22 @@ def test_ingest_endpoint(mock_vector_store):
 
 def test_flashrank_rerank():
     from langchain_community.document_compressors.flashrank_rerank import FlashrankRerank
-    query = "project Supernova"
-    doc1 = Document(page_content="This is project Supernova 9.", metadata={})
-    doc2 = Document(page_content="This is a completely unrelated file.", metadata={})
+    query = "multi-factor authentication"
+    doc1 = Document(page_content="Configure multi-factor authentication for bank account withdrawals.", metadata={})
+    doc2 = Document(page_content="This is an unrelated file about solar systems.", metadata={})
     
     compressor = FlashrankRerank(top_n=2)
     reranked = compressor.compress_documents([doc2, doc1], query)
     assert len(reranked) == 2
     # doc1 should rank first
-    assert reranked[0].page_content == "This is project Supernova 9."
+    assert reranked[0].page_content == "Configure multi-factor authentication for bank account withdrawals."
     assert "relevance_score" in reranked[0].metadata
 
 def test_reciprocal_rank_fusion():
     from src.rrf import reciprocal_rank_fusion
     
-    doc1 = Document(page_content="Supernova project is a quantum framework.", metadata={})
-    doc2 = Document(page_content="RAG orchestration details.", metadata={})
+    doc1 = Document(page_content="Bank account authentication uses secure tokens.", metadata={})
+    doc2 = Document(page_content="Configure automated wire transfers online.", metadata={})
     doc3 = Document(page_content="Completely unrelated document content.", metadata={})
     
     # Dense results (dist 0.1 is best, doc1 first, doc2 second)
@@ -71,13 +71,13 @@ def test_reciprocal_rank_fusion():
 
 def test_query_no_tools(mock_llm_with_tools):
     mock_res = MagicMock()
-    mock_res.content = "Paris is the capital of France."
+    mock_res.content = "I can only help with inquiries related to the Fintech RAG Chatbot."
     mock_res.tool_calls = []
     mock_llm_with_tools.invoke.return_value = mock_res
     
     response = client.post("/query", json={"message": "What is the capital of France?", "history": []})
     assert response.status_code == 200
-    assert response.json()["response"] == "Paris is the capital of France."
+    assert "Fintech RAG Chatbot" in response.json()["response"]
     assert response.json()["tool_calls_executed"] == []
     assert response.json()["fallback_triggered"] == False
 
@@ -89,28 +89,28 @@ def test_query_local_vector_retrieval(mock_llm_with_tools, mock_vector_store):
     mock_res_tool.content = ""
     mock_res_tool.tool_calls = [{
         "name": "retrieve_local_documents",
-        "args": {"query": "Supernova 9"},
+        "args": {"query": "transfer limit"},
         "id": "call_1"
     }]
     
     # Second invoke returns final compiled response
     mock_res_answer = MagicMock()
-    mock_res_answer.content = "Supernova 9 is our internal pipeline."
+    mock_res_answer.content = "The daily transfer limit is $10,000."
     mock_res_answer.tool_calls = []
     
     mock_llm_with_tools.invoke.side_effect = [mock_res_tool, mock_res_answer]
     
     # Mock Vector search results
-    doc = Document(page_content="This is project Supernova 9.", metadata={})
+    doc = Document(page_content="The daily transfer limit is $10,000.", metadata={})
     mock_vector_store.similarity_search_with_score.return_value = [(doc, 0.1)]
     mock_vector_store.get.return_value = {
-        "documents": ["This is project Supernova 9."],
+        "documents": ["The daily transfer limit is $10,000."],
         "metadatas": [{}]
     }
     
-    response = client.post("/query", json={"message": "What is Supernova 9?", "history": []})
+    response = client.post("/query", json={"message": "What is the daily transfer limit?", "history": []})
     assert response.status_code == 200
-    assert response.json()["response"] == "Supernova 9 is our internal pipeline."
+    assert response.json()["response"] == "The daily transfer limit is $10,000."
     assert "retrieve_local_documents" in response.json()["tool_calls_executed"]
     assert response.json()["fallback_triggered"] == False
 
@@ -142,25 +142,25 @@ def test_bm25_retriever():
     from langchain_community.retrievers import BM25Retriever
     from langchain_core.documents import Document
     
-    doc1 = Document(page_content="The quick brown fox jumps over the lazy dog", metadata={})
-    doc2 = Document(page_content="Python is an amazing programming language", metadata={})
-    doc3 = Document(page_content="Web search and database retrieval framework", metadata={})
+    doc1 = Document(page_content="Standard checking accounts have zero monthly service fees.", metadata={})
+    doc2 = Document(page_content="High-yield savings accounts earn a 4.5% annual percentage yield.", metadata={})
+    doc3 = Document(page_content="Direct deposits usually clear within one business day.", metadata={})
     
     retriever = BM25Retriever.from_documents([doc1, doc2, doc3])
     retriever.k = 1
     
     # Query with exact matching words in doc2
-    results = retriever.invoke("programming language")
+    results = retriever.invoke("savings yield")
     assert len(results) == 1
-    assert results[0].page_content == "Python is an amazing programming language"
+    assert results[0].page_content == "High-yield savings accounts earn a 4.5% annual percentage yield."
 
-def test_reciprocal_rank_fusion():
+def test_reciprocal_rank_fusion_integration():
     from src.rrf import reciprocal_rank_fusion
     from langchain_core.documents import Document
     
-    doc1 = Document(page_content="Doc 1 content", metadata={})
-    doc2 = Document(page_content="Doc 2 content", metadata={})
-    doc3 = Document(page_content="Doc 3 content", metadata={})
+    doc1 = Document(page_content="Interest rate calculation terms", metadata={})
+    doc2 = Document(page_content="Mobile check deposit limits", metadata={})
+    doc3 = Document(page_content="Overdraft protection services", metadata={})
     
     # Mock semantic results: doc1 at rank 1, doc2 at rank 2
     semantic_results = [(doc1, 0.1), (doc2, 0.2)]
@@ -171,7 +171,7 @@ def test_reciprocal_rank_fusion():
     
     # Doc 1 should be the top recommendation since it appears in both lists
     assert len(fused) == 3
-    assert fused[0].page_content == "Doc 1 content"
+    assert fused[0].page_content == "Interest rate calculation terms"
 
 @patch("src.vector_db.vector_store")
 def test_retrieve_local_documents_integration_pipeline(mock_vector_store):
@@ -180,7 +180,7 @@ def test_retrieve_local_documents_integration_pipeline(mock_vector_store):
     
     # 1. Define document candidates
     doc_a = Document(page_content="The quick brown fox jumps over the lazy dog.", metadata={})
-    doc_b = Document(page_content="Aegis project is an encryption scheme code-named Aegis.", metadata={})
+    doc_b = Document(page_content="Our secure bank transfer encryption scheme is code-named AegisSec.", metadata={})
     doc_c = Document(page_content="Unrelated document content about solar systems.", metadata={})
     
     # 2. Mock Vector Store get() to return all documents for BM25
@@ -203,9 +203,9 @@ def test_retrieve_local_documents_integration_pipeline(mock_vector_store):
     result = retrieve_local_documents.invoke("encryption scheme")
     
     # 5. Assertions
-    # The top returned context should contain the Aegis document chunk (doc_b)
+    # The top returned context should contain the AegisSec document chunk (doc_b)
     # due to BM25 keyword matching, RRF fusion, and FlashRank cross-encoder reranking.
-    assert "Aegis" in result
+    assert "AegisSec" in result
     assert "encryption scheme" in result
     # doc_b should rank higher than doc_c in the final reranked context
-    assert result.index("Aegis") < result.index("Unrelated")
+    assert result.index("AegisSec") < result.index("Unrelated")

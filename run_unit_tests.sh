@@ -5,9 +5,9 @@ if [ -f ".env" ]; then
     export $(grep -v '^#' .env | tr -d '\r' | xargs)
 fi
 
-echo -e "\n\033[1;96m========================================================\033[0m"
-echo -e "\033[1;92m>>> [1/2] [$(basename "$0")] Activating Python Virtual Environment\033[0m"
-echo -e "\033[1;96m========================================================\033[0m\n"
+echo "========================================================"
+echo "[1/2] Activating Python Virtual Environment"
+echo "========================================================"
 
 # Create venv if not exists
 if [ ! -d "venv" ]; then
@@ -25,8 +25,8 @@ fi
 echo "Installing/checking dependencies..."
 pip install -r requirements.txt
 
-echo -e "\n\033[1;96m========================================================\033[0m"
-echo -e "\033[1;92m>>> [2/2] [$(basename "$0")] Running Unit Tests\033[0m"
-echo -e "\033[1;96m========================================================\033[0m\n"
+echo "========================================================"
+echo "[2/2] Running Unit Tests"
+echo "========================================================"
 
 python -m pytest tests/test_api_unit.py -v

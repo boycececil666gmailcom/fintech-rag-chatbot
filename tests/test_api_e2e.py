@@ -5,7 +5,7 @@ from src.main import app
 client = TestClient(app)
 
 def test_e2e_query_no_search():
-    """Verify factual query that does not require search is resolved directly."""
+    """Verify factual query that does not require search is resolved directly (and politely refused if unrelated)."""
     response = client.post(
         "/query",
         json={"message": "What is the capital of France?", "history": []}
@@ -13,18 +13,9 @@ def test_e2e_query_no_search():
     assert response.status_code == 200
     res_data = response.json()
     assert "response" in res_data
-    assert "Paris" in res_data["response"]
+    assert "Fintech RAG Chatbot" in res_data["response"]
 
-def test_e2e_query_with_search():
-    """Verify query that requires search is successfully completed."""
-    response = client.post(
-        "/query",
-        json={"message": "Who won the most recent Super Bowl?", "history": []}
-    )
-    assert response.status_code == 200
-    res_data = response.json()
-    assert "response" in res_data
-    assert len(res_data["response"]) > 0
+
 
 def test_e2e_query_local_db():
     """Verify query that requires local database context is resolved using retrieve_local_documents."""
@@ -32,7 +23,7 @@ def test_e2e_query_local_db():
     ingest_response = client.post(
         "/ingest",
         json={
-            "text": "Project Supernova 9 is an internal next-generation quantum-encryption framework code-named Aegis.",
+            "text": "Our Fintech SaaS platform allows instant wire transfers up to a daily limit of $10,000.",
             "metadata": {"source": "e2e_test"}
         }
     )
@@ -43,12 +34,12 @@ def test_e2e_query_local_db():
     # 2. Query document
     response = client.post(
         "/query",
-        json={"message": "What is the internal code-name of project Supernova 9?", "history": []}
+        json={"message": "What is the daily wire transfer limit on the SaaS platform?", "history": []}
     )
     assert response.status_code == 200
     res_data = response.json()
     assert "response" in res_data
-    assert "Aegis" in res_data["response"]
+    assert "10,000" in res_data["response"]
     assert "retrieve_local_documents" in res_data["tool_calls_executed"]
 
 def test_e2e_query_hybrid_bm25_retrieval():
@@ -57,20 +48,20 @@ def test_e2e_query_hybrid_bm25_retrieval():
     ingest_response = client.post(
         "/ingest",
         json={
-            "text": "The secret vault access code for project QWERTY998877X is AegisVaultCode.",
+            "text": "The secret routing verification code for the Zurich branch is ZH-9988-X.",
             "metadata": {"source": "e2e_hybrid_test"}
         }
     )
     assert ingest_response.status_code == 200
     
-    # 2. Query document using the exact unique keyword to fetch the secret vault access code
+    # 2. Query document using the exact unique keyword to fetch the secret routing verification code
     response = client.post(
         "/query",
-        json={"message": "What is the secret vault access code for project QWERTY998877X?", "history": []}
+        json={"message": "What is the secret routing verification code for the Zurich branch?", "history": []}
     )
     assert response.status_code == 200
     res_data = response.json()
     assert "response" in res_data
-    # Assert the LLM generates the correct answer 'AegisVaultCode' which was not in the query message
-    assert "AegisVaultCode" in res_data["response"]
+    # Assert the LLM generates the correct answer 'ZH-9988-X' which was not in the query message
+    assert "ZH-9988-X" in res_data["response"]
     assert "retrieve_local_documents" in res_data["tool_calls_executed"]
