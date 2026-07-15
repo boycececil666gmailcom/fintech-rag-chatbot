@@ -28,13 +28,18 @@ graph TD
     %% Query path
     Server -->|POST /query| Query[Query Processing Path]
     Query --> Router{Ollama Agent Router}
-    Router -->|Local Context| Local[Local DB Retrieval]
+    Router -->|Local Context| Local[retrieve_local_documents Tool]
     Router -->|Real-Time Context| Web[Web Search]
     Router -->|Direct Generation| Direct[Direct Answer]
     
-    Local -.-> DB
+    Local --> DenseSearch[1. Dense Search: Chroma]
+    Local --> GetDocs[2. Get All Documents]
+    GetDocs --> BM25Search[3. Sparse Search: BM25]
+    DenseSearch --> RRF[4. Reciprocal Rank Fusion - RRF]
+    BM25Search --> RRF
+    RRF --> Rerank[5. Rerank: FlashRank Cross-Encoder]
+    Rerank --> Synth[Final Synthesis]
     
-    Local --> Synth[Final Synthesis]
     Web --> Synth
     Direct --> Synth
 ```
@@ -66,6 +71,9 @@ sequenceDiagram
     autonumber
     actor User
     participant App as FastAPI Server (main.py)
+    participant BM25 as BM25 Searcher (bm25.py)
+    participant RRF as RRF Module (rrf.py)
+    participant Reranker as Reranker (reranker.py)
     participant Ollama as Local Ollama LLM
     participant VectorStore as Chroma Vector DB
     participant Search as DuckDuckGo Search
@@ -77,10 +85,20 @@ sequenceDiagram
         rect rgb(224, 242, 254)
             note right of App: Tool call: retrieve_local_documents
             Ollama-->>App: Tool call request (retrieve_local_documents)
-            App->>VectorStore: Search documents (k=5)
-            VectorStore-->>App: Raw document chunks
-            note right of App: Apply heuristic re-ranking (token overlap)
-            App->>Ollama: Prompt with top 2 re-ranked context chunks
+            
+            App->>VectorStore: Get dense semantic results (k=10)
+            VectorStore-->>App: Semantic documents + distance
+            
+            App->>BM25: Search sparse keywords (k=10)
+            BM25-->>App: Sparse documents + BM25 score
+            
+            App->>RRF: reciprocal_rank_fusion(dense, sparse)
+            RRF-->>App: Top 5 fused documents
+            
+            App->>Reranker: rerank_documents(query, fused_docs)
+            Reranker-->>App: Sorted top-2 context chunks (by Cross-Encoder)
+            
+            App->>Ollama: Prompt with top 2 reranked context chunks
             Ollama-->>App: Final answer text
         end
     else Path B: Needs Real-Time Public Context

@@ -13,24 +13,17 @@ echo -e "\033[1;96m========================================================\033[
 if [ ! -d "venv" ]; then
     echo "Creating virtual environment..."
     python -m venv venv || python3 -m venv venv || exit 1
-    
-    # Activate
-    if [ -f "venv/Scripts/activate" ]; then
-        source venv/Scripts/activate
-    else
-        source venv/bin/activate
-    fi
-    
-    echo "Installing dependencies..."
-    pip install -r requirements.txt
-else
-    # Activate
-    if [ -f "venv/Scripts/activate" ]; then
-        source venv/Scripts/activate
-    else
-        source venv/bin/activate
-    fi
 fi
+
+# Activate
+if [ -f "venv/Scripts/activate" ]; then
+    source venv/Scripts/activate
+else
+    source venv/bin/activate
+fi
+
+echo "Installing/checking dependencies..."
+pip install -r requirements.txt
 
 echo -e "\n\033[1;96m========================================================\033[0m"
 echo -e "\033[1;92m>>> [2/2] [$(basename "$0")] Running Unit Tests\033[0m"

@@ -50,3 +50,27 @@ def test_e2e_query_local_db():
     assert "response" in res_data
     assert "Aegis" in res_data["response"]
     assert "retrieve_local_documents" in res_data["tool_calls_executed"]
+
+def test_e2e_query_hybrid_bm25_retrieval():
+    """Verify that unique keywords not easily found by semantic search are retrieved via BM25 hybrid path."""
+    # 1. Ingest document with a very specific unique identifier keyword and a distinct answer code
+    ingest_response = client.post(
+        "/ingest",
+        json={
+            "text": "The secret vault access code for project QWERTY998877X is AegisVaultCode.",
+            "metadata": {"source": "e2e_hybrid_test"}
+        }
+    )
+    assert ingest_response.status_code == 200
+    
+    # 2. Query document using the exact unique keyword to fetch the secret vault access code
+    response = client.post(
+        "/query",
+        json={"message": "What is the secret vault access code for project QWERTY998877X?", "history": []}
+    )
+    assert response.status_code == 200
+    res_data = response.json()
+    assert "response" in res_data
+    # Assert the LLM generates the correct answer 'AegisVaultCode' which was not in the query message
+    assert "AegisVaultCode" in res_data["response"]
+    assert "retrieve_local_documents" in res_data["tool_calls_executed"]

@@ -49,7 +49,31 @@ def test_rerank_documents():
     # doc1 should rank first
     assert reranked[0][0].page_content == "This is project Supernova 9."
 
+def test_reciprocal_rank_fusion():
+    from src.rrf import reciprocal_rank_fusion
+    
+    doc1 = Document(page_content="Supernova project is a quantum framework.", metadata={})
+    doc2 = Document(page_content="RAG orchestration details.", metadata={})
+    doc3 = Document(page_content="Completely unrelated document content.", metadata={})
+    
+    # Dense results (dist 0.1 is best, doc1 first, doc2 second)
+    dense_results = [
+        (doc1, 0.1),
+        (doc2, 0.5)
+    ]
+    # Sparse results (score 10.0 is best, doc2 first, doc1 second, doc3 third)
+    sparse_results = [
+        (doc2, 10.0),
+        (doc1, 5.0),
+        (doc3, 1.0)
+    ]
+    
+    fused = reciprocal_rank_fusion(dense_results, sparse_results, k=60, top_n=2)
+    assert len(fused) == 2
+    assert doc3 not in fused
+
 @patch("src.main.llm_with_tools")
+
 def test_query_no_tools(mock_llm_with_tools):
     mock_res = MagicMock()
     mock_res.content = "Paris is the capital of France."
@@ -84,6 +108,10 @@ def test_query_local_vector_retrieval(mock_llm_with_tools, mock_vector_store):
     # Mock Vector search results
     doc = Document(page_content="This is project Supernova 9.", metadata={})
     mock_vector_store.similarity_search_with_score.return_value = [(doc, 0.1)]
+    mock_vector_store.get.return_value = {
+        "documents": ["This is project Supernova 9."],
+        "metadatas": [{}]
+    }
     
     response = client.post("/query", json={"message": "What is Supernova 9?", "history": []})
     assert response.status_code == 200
@@ -114,3 +142,75 @@ def test_query_tool_hallucination_safeguard(mock_llm_with_tools):
     assert response.json()["response"] == "This is a direct response output."
     assert response.json()["tool_calls_executed"] == []
     assert response.json()["fallback_triggered"] == True
+
+def test_bm25_searcher():
+    from src.bm25 import BM25Searcher
+    from langchain_core.documents import Document
+    
+    doc1 = Document(page_content="The quick brown fox jumps over the lazy dog", metadata={})
+    doc2 = Document(page_content="Python is an amazing programming language", metadata={})
+    doc3 = Document(page_content="Web search and database retrieval framework", metadata={})
+    
+    searcher = BM25Searcher([doc1, doc2, doc3])
+    
+    # Query with exact matching words in doc2
+    results = searcher.search("programming language", k=1)
+    assert len(results) == 1
+    assert results[0][0].page_content == "Python is an amazing programming language"
+    assert results[0][1] > 0.0
+
+def test_reciprocal_rank_fusion():
+    from src.rrf import reciprocal_rank_fusion
+    from langchain_core.documents import Document
+    
+    doc1 = Document(page_content="Doc 1 content", metadata={})
+    doc2 = Document(page_content="Doc 2 content", metadata={})
+    doc3 = Document(page_content="Doc 3 content", metadata={})
+    
+    # Mock semantic results: doc1 at rank 1, doc2 at rank 2
+    semantic_results = [(doc1, 0.1), (doc2, 0.2)]
+    # Mock BM25 results: doc3 at rank 1, doc1 at rank 2
+    bm25_results = [(doc3, 10.0), (doc1, 8.0)]
+    
+    fused = reciprocal_rank_fusion(semantic_results, bm25_results, k=60, top_n=3)
+    
+    # Doc 1 should be the top recommendation since it appears in both lists
+    assert len(fused) == 3
+    assert fused[0].page_content == "Doc 1 content"
+
+@patch("src.vector_db.vector_store")
+def test_retrieve_local_documents_integration_pipeline(mock_vector_store):
+    from src.tools import retrieve_local_documents
+    from langchain_core.documents import Document
+    
+    # 1. Define document candidates
+    doc_a = Document(page_content="The quick brown fox jumps over the lazy dog.", metadata={})
+    doc_b = Document(page_content="Aegis project is an encryption scheme code-named Aegis.", metadata={})
+    doc_c = Document(page_content="Unrelated document content about solar systems.", metadata={})
+    
+    # 2. Mock Vector Store get() to return all documents for BM25
+    mock_vector_store.get.return_value = {
+        "documents": [doc_a.page_content, doc_b.page_content, doc_c.page_content],
+        "metadatas": [{}, {}, {}]
+    }
+    
+    # 3. Mock dense vector search to return a poor candidate (doc_c) first and relevant candidate (doc_b) second
+    # doc_c gets distance 0.1 (high similarity), doc_b gets distance 0.8 (low similarity)
+    mock_vector_store.similarity_search_with_score.return_value = [
+        (doc_c, 0.1),
+        (doc_b, 0.8)
+    ]
+    
+    # 4. Invoke local retrieval
+    # Query has exact keywords for doc_b.
+    # The sparse search (BM25) will score doc_b very high, while dense search scored doc_c high.
+    # RRF fuses them, and FlashRank reranks doc_b to the top.
+    result = retrieve_local_documents.invoke("encryption scheme")
+    
+    # 5. Assertions
+    # The top returned context should contain the Aegis document chunk (doc_b)
+    # due to BM25 keyword matching, RRF fusion, and FlashRank cross-encoder reranking.
+    assert "Aegis" in result
+    assert "encryption scheme" in result
+    # doc_b should rank higher than doc_c in the final reranked context
+    assert result.index("Aegis") < result.index("Unrelated")

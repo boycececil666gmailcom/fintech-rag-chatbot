@@ -42,9 +42,10 @@ jobs:
           sleep 1
         done
 
-    - name: Pull Ollama Model
+    - name: Pull Ollama Models
       run: |
         ollama pull qwen2.5:7b
+        ollama pull nomic-embed-text
 
     - name: Run E2E Tests
       run: |
