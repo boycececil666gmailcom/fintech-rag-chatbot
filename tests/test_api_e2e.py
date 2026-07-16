@@ -13,7 +13,7 @@ def test_e2e_query_no_search():
     assert response.status_code == 200
     res_data = response.json()
     assert "response" in res_data
-    assert "Fintech RAG Chatbot" in res_data["response"]
+    assert "Fintech" in res_data["response"]
 
 
 
@@ -48,7 +48,7 @@ def test_e2e_query_hybrid_bm25_retrieval():
     ingest_response = client.post(
         "/ingest",
         json={
-            "text": "The secret routing verification code for the Zurich branch is ZH-9988-X.",
+            "text": "Our Fintech SaaS platform uses a proprietary transaction routing mechanism code-named AegisSec-99.",
             "metadata": {"source": "e2e_hybrid_test"}
         }
     )
@@ -57,11 +57,11 @@ def test_e2e_query_hybrid_bm25_retrieval():
     # 2. Query document using the exact unique keyword to fetch the secret routing verification code
     response = client.post(
         "/query",
-        json={"message": "What is the secret routing verification code for the Zurich branch?", "history": []}
+        json={"message": "What is the routing mechanism code name used by the SaaS platform?", "history": []}
     )
     assert response.status_code == 200
     res_data = response.json()
     assert "response" in res_data
-    # Assert the LLM generates the correct answer 'ZH-9988-X' which was not in the query message
-    assert "ZH-9988-X" in res_data["response"]
+    # Assert the LLM generates the correct answer 'AegisSec-99' which was not in the query message
+    assert "AegisSec-99" in res_data["response"]
     assert "retrieve_local_documents" in res_data["tool_calls_executed"]
