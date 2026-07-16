@@ -1,7 +1,10 @@
 import os
+import logging
 import uvicorn
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException
+
+logger = logging.getLogger(__name__)
 
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
@@ -48,7 +51,6 @@ async def run_query(request: QueryRequest):
         )
     
     tool_calls_executed = []
-    fallback_triggered = False
     
     try:
         # Step 1/4: Payload mapping
@@ -97,8 +99,7 @@ async def run_query(request: QueryRequest):
                 
                 # Safeguard 1: Hallucinated / Invalid Tool Name check
                 if tool_name not in ["retrieve_local_documents"]:
-                    print(f"Warning: Hallucinated tool call '{tool_name}' detected. Triggering safeguard fallback.")
-                    fallback_triggered = True
+                    logger.warning(f"Hallucinated tool call '{tool_name}' detected. Triggering safeguard fallback.")
                     continue
                     
                 tool_calls_executed.append(tool_name)
@@ -117,8 +118,7 @@ async def run_query(request: QueryRequest):
                     if tool_name == "retrieve_local_documents":
                         tool_output = retrieve_local_documents.invoke(q_val)
                 except Exception as tool_err:
-                    print(f"Tool execution failed: {tool_err}. Triggering direct fallback.")
-                    fallback_triggered = True
+                    logger.error(f"Tool execution failed: {tool_err}. Triggering direct fallback.")
                     tool_output = f"Error: Failed execution context fallback: {str(tool_err)}"
                 
                 tool_message = ToolMessage(
@@ -134,17 +134,16 @@ async def run_query(request: QueryRequest):
             final_response = llm_with_tools.invoke(messages)
             response_content = final_response.content
         else:
-            # Step 4/4 (Direct Path)
+            # Step 4/4 (Direct Path Refused)
             print(f"\n\033[1;96m========================================================\033[0m")
-            print(f"\033[1;92m>>> [4/4] [{os.path.basename(__file__)}] Generating direct LLM response\033[0m")
+            print(f"\033[1;92m>>> [4/4] [{os.path.basename(__file__)}] Direct response path refused\033[0m")
             print(f"\033[1;96m========================================================\033[0m\n")
-            response_content = response.content
+            response_content = "I'm sorry, Chatbot has decided that the query can't be solved by using the hosted knowledge base. It's advised to used general-purpose agent to solve your problem."
             
         print("Query execution completed successfully.\n")
         return QueryResponse(
             response=response_content,
-            tool_calls_executed=tool_calls_executed,
-            fallback_triggered=fallback_triggered
+            tool_calls_executed=tool_calls_executed
         )
         
     except Exception as e:

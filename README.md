@@ -7,7 +7,7 @@ A modular, stateless local Retrieval-Augmented Generation (RAG) customer service
 The backend exposes two main HTTP POST endpoints under FastAPI:
 
 - **`POST /ingest`**: Accepts raw text documents, splits them into manageable chunks, generates vector embeddings, and stores them in the local Chroma database.
-- **`POST /query`**: Accepts user queries and history. An LLM agent determines if the query requires local document retrieval from the platform's knowledge base or can be resolved directly.
+- **`POST /query`**: Accepts user queries and history. An LLM agent routes queries to retrieve platform documentation from the local database. If a query does not trigger retrieval, the direct pathway is refused to ensure responses are fully grounded in the local database.
 
 ---
 
@@ -29,7 +29,7 @@ graph TD
     Server -->|POST /query| Query[Query Processing Path]
     Query --> Router{Ollama Agent Router}
     Router -->|Local Context| Local[retrieve_local_documents Tool]
-    Router -->|Direct Generation| Direct[Direct Answer]
+    Router -->|Direct Generation Refused| Direct[Refusal Response]
     
     Local --> DenseSearch[1. Dense Search: Chroma]
     Local --> GetDocs[2. Get All Documents]
@@ -38,8 +38,6 @@ graph TD
     BM25Search --> RRF
     RRF --> Rerank[5. Rerank: FlashRank Cross-Encoder]
     Rerank --> Synth[Final Synthesis]
-    
-    Direct --> Synth
 ```
 
 ### 1. Ingestion Path
@@ -98,10 +96,10 @@ sequenceDiagram
             App->>Ollama: Prompt with top 2 reranked context chunks
             Ollama-->>App: Final answer text
         end
-    else Path B: Can Answer Directly
-        rect rgb(220, 252, 231)
-            note right of App: Direct generation
-            Ollama-->>App: Direct answer text
+    else Path B: Direct Generation Refused
+        rect rgb(254, 226, 226)
+            note right of App: Refusal path
+            App-->>User: Refusal response (Pre-trained answering disabled)
         end
     end
     

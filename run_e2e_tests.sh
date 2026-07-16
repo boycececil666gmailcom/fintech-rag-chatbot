@@ -18,15 +18,19 @@ fi
 # Activate
 if [ -f "venv/Scripts/activate" ]; then
     source venv/Scripts/activate
+    VENV_PYTHON="venv/Scripts/python"
+    VENV_PIP="venv/Scripts/pip"
 else
     source venv/bin/activate
+    VENV_PYTHON="venv/bin/python"
+    VENV_PIP="venv/bin/pip"
 fi
 
 echo "Installing/checking dependencies..."
-pip install -r requirements.txt
+$VENV_PIP install -r requirements.txt
 
 echo "========================================================"
 echo "[2/2] Running End-to-End Tests"
 echo "========================================================"
 
-python -m pytest tests/test_api_e2e.py -v
+$VENV_PYTHON -m pytest tests/test_api_e2e.py -v

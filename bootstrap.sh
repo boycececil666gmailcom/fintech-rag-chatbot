@@ -21,8 +21,12 @@ fi
 # Activate virtual environment
 if [ -f "venv/Scripts/activate" ]; then
     source venv/Scripts/activate
+    VENV_PYTHON="venv/Scripts/python"
+    VENV_PIP="venv/Scripts/pip"
 else
     source venv/bin/activate
+    VENV_PYTHON="venv/bin/python"
+    VENV_PIP="venv/bin/pip"
 fi
 
 echo "========================================================"
@@ -71,7 +75,7 @@ echo "========================================================"
 echo "[3/3] Installing Dependencies and Starting Server"
 echo "========================================================"
 
-pip install -r requirements.txt
+$VENV_PIP install -r requirements.txt
 
 echo "Starting backend server..."
-python -m src.main
+$VENV_PYTHON -m src.main

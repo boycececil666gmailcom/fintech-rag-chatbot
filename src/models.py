@@ -12,7 +12,6 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     response: str
     tool_calls_executed: List[str] = Field(default_factory=list)
-    fallback_triggered: bool = False
 
 class IngestRequest(BaseModel):
     text: str = Field(min_length=1, description="Raw document text to ingest")
