@@ -50,8 +50,15 @@ def retrieve_local_documents(query: str) -> str:
         fused_docs = reciprocal_rank_fusion(dense_results, bm25_results, k=60, top_n=5)
         
         # 5. Apply FlashRank Cross-Encoder reranker using LangChain's FlashrankRerank
-        compressor = FlashrankRerank(top_n=2)
-        reranked_docs = compressor.compress_documents(fused_docs, query)
+        try:
+            compressor = FlashrankRerank(top_n=2)
+            reranked_docs = compressor.compress_documents(fused_docs, query)
+        except Exception as rerank_err:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"FlashRank reranking failed, falling back to RRF rankings: {rerank_err}"
+            )
+            reranked_docs = fused_docs[:2]
         
         # Format top chunks as output context
         context_list = []

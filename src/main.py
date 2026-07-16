@@ -61,10 +61,10 @@ async def run_query(request: QueryRequest):
         messages = [
             SystemMessage(content=(
                 "You are a customer service assistant for a Fintech RAG Chatbot.\n"
-                "You have access to a local vector document database containing private platform documentation, FAQs, and product guides.\n"
-                "You must route your query processing through one of these actions:\n"
-                "- If the user query is about bank account terms, SaaS platform usage, account creation, transfers, fees, features, security, internal guidelines, or specific workspace facts, you MUST call 'retrieve_local_documents'.\n"
-                "- If the query is unrelated to the Fintech SaaS platform, you must answer directly and politely refuse to respond, stating that you can only help with inquiries related to the Fintech RAG Chatbot."
+                "You have access to a local vector database containing platform documentation via the tool 'retrieve_local_documents'.\n"
+                "CRITICAL RULES:\n"
+                "1. If the user's query is unrelated to the Fintech SaaS platform (e.g. general knowledge, math, other countries, capitals like France/Paris, etc.), you MUST NOT call any tools. You must answer directly and politely refuse to respond, stating that you can only help with inquiries related to the Fintech RAG Chatbot.\n"
+                "2. Only call 'retrieve_local_documents' if the query is specifically about bank accounts, SaaS platform usage, account creation, transfers, fees, features, security, internal guidelines, or specific workspace facts."
             ))
         ]
         
@@ -131,6 +131,16 @@ async def run_query(request: QueryRequest):
             print(f"\n\033[1;96m========================================================\033[0m")
             print(f"\033[1;92m>>> [4/4] [{os.path.basename(__file__)}] Synthesizing final answer with tools context\033[0m")
             print(f"\033[1;96m========================================================\033[0m\n")
+            
+            # Refusal Safeguard: Append a system reminder if the database search returned no results
+            if any("No matching local documents found" in str(msg.content) for msg in messages if isinstance(msg, ToolMessage)):
+                messages.append(SystemMessage(content=(
+                    "Refusal Safeguard: If the retrieved database context is empty and the user query is unrelated "
+                    "to the Fintech SaaS platform, you must refuse to answer. Do not use your pre-trained knowledge "
+                    "to answer general knowledge questions. Politely state that you can only help with inquiries "
+                    "related to the Fintech RAG Chatbot."
+                )))
+                
             final_response = llm_with_tools.invoke(messages)
             response_content = final_response.content
         else:
