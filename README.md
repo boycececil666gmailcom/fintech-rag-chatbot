@@ -2,6 +2,56 @@
 
 A modular, stateless local Retrieval-Augmented Generation (RAG) customer service chatbot for a Fintech SaaS platform utilizing a local Ollama instance and a Chroma Vector Database for local document storage.
 
+## Business & Product Flow (Overview)
+
+Below is a simplified view of how information flows through the Fintech RAG Chatbot system, designed for product managers and operations:
+
+```mermaid
+flowchart TD
+    %% Styling Node classes
+    classDef client fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0369a1;
+    classDef router fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#b45309;
+    classDef kb fill:#f3e8ff,stroke:#7e22ce,stroke-width:2px,color:#6b21a8;
+    classDef reply fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#166534;
+    classDef block fill:#fee2e2,stroke:#b91c1c,stroke-width:2px,color:#991b1b;
+    classDef process fill:#f9fafb,stroke:#d1d5db,stroke-width:1px,color:#374151;
+
+    %% Main customer interaction entry point
+    Client(["📱 Client App / Customer"])
+    
+    Client -->|"1. Submits chat query"| Router{"🤖 LLM Router (Ollama)"}
+    
+    %% Router checks relevance
+    Router -->|"2. Checks query topic"| IsFintech{"Is it a Fintech SaaS query?"}
+    
+    %% Safeguard Refusal Path (Left branch)
+    IsFintech -->|"No (General Query)"| Safeguard["🛡️ Refusal Safeguard"]
+    Safeguard -->|"Blocks answering from LLM memory"| RefusalReply["Polite Decline Answer"]
+    RefusalReply -->|"Returns response"| Client
+    
+    %% RAG Retrieval Path (Right branch)
+    IsFintech -->|"Yes (Fintech Query)"| Search["🔍 Search internal knowledge base"]
+    
+    %% Ingestion background flow
+    subgraph Ingestion ["Knowledge Ingestion (Offline Feed)"]
+        Admin(["Product / Ops Admin"]) -->|"Uploads FAQs & Guides"| DB[("📚 Knowledge Base (Chroma DB)")]
+    end
+    
+    Search -->|"Fetch context chunks"| DB
+    DB -->|"Returns factual source text"| Synth["✏️ Synthesis Engine"]
+    Synth -->|"Generates grounded response"| VerifiedReply["Verified Platform Answer"]
+    
+    VerifiedReply -->|"Returns response"| Client
+
+    %% Class assignments
+    class Client,Admin client;
+    class Router,IsFintech router;
+    class DB kb;
+    class Search,Synth process;
+    class VerifiedReply reply;
+    class Safeguard,RefusalReply block;
+```
+
 ## Features & API Endpoints
 
 The backend exposes two main HTTP POST endpoints under FastAPI:
