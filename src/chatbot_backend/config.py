@@ -22,3 +22,7 @@ HOST = os.getenv("HOST", "0.0.0.0")
 # Qdrant settings
 QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+
+# Chatbot Theme setting
+CHATBOT_THEME = os.getenv("CHATBOT_THEME", "Fintech SaaS platform")
+

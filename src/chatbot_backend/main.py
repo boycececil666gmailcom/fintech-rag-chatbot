@@ -8,14 +8,14 @@ logger = logging.getLogger(__name__)
 
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
 
-from src.chatbot_backend.config import HOST, PORT, GEMINI_API_KEY, GEMINI_MODEL, GEMINI_TEMPERATURE
+from src.chatbot_backend.config import HOST, PORT, GEMINI_API_KEY, GEMINI_MODEL, GEMINI_TEMPERATURE, CHATBOT_THEME
 
 # Import modular components
 import src.chatbot_backend.vector_db as db
 from src.chatbot_backend.tools import retrieve_local_documents
-from src.chatbot_backend.models import MessageSchema, QueryRequest, QueryResponse, IngestRequest, IngestResponse
+from src.chatbot_backend.models import MessageSchema, QueryRequest, QueryResponse, IngestRequest, IngestResponse, ToolQueryArgs
 
-app = FastAPI(title="Fintech RAG Chatbot Backend")
+app = FastAPI(title="AI RAG Search Robot Backend")
 
 # Initialize LLM & Tool binding
 llm = None
@@ -67,11 +67,12 @@ async def run_query(request: QueryRequest):
         
         messages = [
             SystemMessage(content=(
-                "You are a customer service assistant for a Fintech RAG Chatbot.\n"
-                "You have access to a local vector database containing platform documentation via the tool 'retrieve_local_documents'.\n"
-                "CRITICAL RULES:\n"
-                "1. If the user's query is unrelated to the Fintech SaaS platform (e.g. general knowledge, math, other countries, capitals like France/Paris, etc.), you MUST NOT call any tools. You must answer directly and politely refuse to respond, stating that you can only help with inquiries related to the Fintech RAG Chatbot.\n"
-                "2. Only call 'retrieve_local_documents' if the query is specifically about bank accounts, SaaS platform usage, account creation, transfers, fees, features, security, internal guidelines, or specific workspace facts."
+                f"You are a customer service assistant for an AI RAG Search Robot.\n"
+                f"Your primary theme is: {CHATBOT_THEME}.\n"
+                f"You have access to a local vector database containing platform documentation via the tool 'retrieve_local_documents'.\n"
+                f"CRITICAL RULES:\n"
+                f"1. If the user's query is unrelated to the theme '{CHATBOT_THEME}, you MUST NOT call any tools. You must answer directly and politely refuse to respond, stating that you can only help with inquiries related to {CHATBOT_THEME}.\n"
+                f"2. Only call 'retrieve_local_documents' if the query is specifically about the theme '{CHATBOT_THEME}', platform-specific guidelines, or specific workspace facts."
             ))
         ]
         
@@ -111,14 +112,7 @@ async def run_query(request: QueryRequest):
                     
                 tool_calls_executed.append(tool_name)
                 
-                # Safeguard 2: Parameter parsing safety
-                q_val = (
-                    tool_args.get("query")
-                    or tool_args.get("input")
-                    or list(tool_args.values())[0]
-                    if isinstance(tool_args, dict) and tool_args
-                    else str(tool_args)
-                )
+                q_val = ToolQueryArgs.model_validate(tool_args).query
                 
                 # Run actual tool
                 try:
@@ -142,10 +136,10 @@ async def run_query(request: QueryRequest):
             # Refusal Safeguard: Append a system reminder if the database search returned no results
             if any("No matching local documents found" in str(msg.content) for msg in messages if isinstance(msg, ToolMessage)):
                 messages.append(SystemMessage(content=(
-                    "Refusal Safeguard: If the retrieved database context is empty and the user query is unrelated "
-                    "to the Fintech SaaS platform, you must refuse to answer. Do not use your pre-trained knowledge "
-                    "to answer general knowledge questions. Politely state that you can only help with inquiries "
-                    "related to the Fintech RAG Chatbot."
+                    f"Refusal Safeguard: If the retrieved database context is empty and the user query is unrelated "
+                    f"to the theme '{CHATBOT_THEME}', you must refuse to answer. Do not use your pre-trained knowledge "
+                    f"to answer general knowledge questions. Politely state that you can only help with inquiries "
+                    f"related to the theme '{CHATBOT_THEME}'."
                 )))
                 
             final_response = llm_with_tools.invoke(messages)
@@ -188,7 +182,7 @@ async def health_check():
     return {
         "status": "ok",
         "model": GEMINI_MODEL,
-        "platform": "Fintech RAG Chatbot",
+        "platform": "AI RAG Search Robot",
         "vector_store": vector_ok
     }
 

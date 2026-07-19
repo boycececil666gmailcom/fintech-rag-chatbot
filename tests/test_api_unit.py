@@ -16,7 +16,7 @@ def test_health_endpoint():
         res = response.json()
         assert res["status"] == "ok"
         assert res["model"] == GEMINI_MODEL
-        assert res["platform"] == "Fintech RAG Chatbot"
+        assert res["platform"] == "AI RAG Search Robot"
 
 @patch("src.chatbot_backend.vector_db.vector_store")
 def test_ingest_endpoint(mock_vector_store):

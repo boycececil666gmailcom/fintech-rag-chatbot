@@ -49,6 +49,8 @@ spec:
               value: "gemini-embedding-001"
             - name: GEMINI_TEMPERATURE
               value: "0.0"
+            - name: CHATBOT_THEME
+              value: "Fintech SaaS platform"
             # Fetch sensitive key from K8s Secret
             - name: GEMINI_API_KEY
               valueFrom:

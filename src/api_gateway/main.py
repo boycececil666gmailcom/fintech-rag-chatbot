@@ -8,7 +8,7 @@ from src.api_gateway.models import QueryRequest, QueryResponse, IngestRequest, I
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Fintech RAG Chatbot API Gateway")
+app = FastAPI(title="AI RAG Search Robot API Gateway")
 
 # Read downstream backend endpoint configuration
 CHATBOT_BACKEND_URL = os.getenv("CHATBOT_BACKEND_URL", "http://localhost:8000")
@@ -108,7 +108,7 @@ async def health_check():
         
     return {
         "status": "ok",
-        "service": "Fintech RAG Chatbot API Gateway",
+        "service": "AI RAG Search Robot API Gateway",
         "downstream_backend": {
             "endpoint": CHATBOT_BACKEND_URL,
             "status": backend_status

@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 class MessageSchema(BaseModel):
     role: Literal["user", "assistant", "system"]
@@ -20,3 +20,16 @@ class IngestRequest(BaseModel):
 class IngestResponse(BaseModel):
     status: str
     chunk_count: int = Field(ge=0)
+
+
+class ToolQueryArgs(BaseModel):
+    query: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def parse_args(cls, data):
+        if isinstance(data, dict):
+            q_val = data.get("query") or data.get("input") or (list(data.values())[0] if data else "")
+            return {"query": str(q_val)}
+        return {"query": str(data)}
+

@@ -11,7 +11,7 @@ def test_e2e_health():
     assert response.status_code == 200
     res = response.json()
     assert res["status"] == "ok"
-    assert res["service"] == "Fintech RAG Chatbot API Gateway"
+    assert res["service"] == "AI RAG Search Robot API Gateway"
     assert "status" in res["downstream_backend"]
 
 def test_e2e_query_refusal():
@@ -24,7 +24,7 @@ def test_e2e_query_refusal():
     assert response.status_code == 200
     res = response.json()
     assert "response" in res
-    assert "Fintech" in res["response"] or "knowledge base" in res["response"]
+    assert "AI RAG Search" in res["response"] or "knowledge base" in res["response"]
     assert isinstance(res["tool_calls_executed"], list)
 
 def test_e2e_ingest_and_query_success():
