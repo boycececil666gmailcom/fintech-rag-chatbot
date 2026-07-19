@@ -2,6 +2,15 @@ from langchain_core.tools import tool
 import src.chatbot_backend.vector_db as db
 from langchain_community.document_compressors.flashrank_rerank import FlashrankRerank
 
+_compressor = None
+
+def get_reranker() -> FlashrankRerank:
+    """Helper to lazily instantiate and cache the FlashrankRerank instance."""
+    global _compressor
+    if _compressor is None:
+        _compressor = FlashrankRerank(top_n=2)
+    return _compressor
+
 @tool
 def retrieve_local_documents(query: str) -> str:
     """Retrieve semantically relevant document chunks from the local vector database.
@@ -18,9 +27,9 @@ def retrieve_local_documents(query: str) -> str:
         if not docs:
             return "No matching local documents found."
             
-        # Apply FlashRank Cross-Encoder reranker using LangChain's FlashrankRerank
+        # Apply FlashRank Cross-Encoder reranker using the cached instance
         try:
-            compressor = FlashrankRerank(top_n=2)
+            compressor = get_reranker()
             reranked_docs = compressor.compress_documents(docs, query)
         except Exception as rerank_err:
             import logging
