@@ -12,7 +12,8 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     response: str
     tool_calls_executed: List[str] = Field(default_factory=list)
-    retrieved_documents: List[Dict] = Field(default_factory=list)
+    retrieved_documents: Optional[str] = None
+
 
 
 class IngestRequest(BaseModel):
