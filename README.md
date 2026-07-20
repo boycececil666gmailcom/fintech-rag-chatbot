@@ -1,10 +1,10 @@
-# Fintech RAG Chatbot
+# RAG Chatbot
 
 A modular, stateless Retrieval-Augmented Generation (RAG) customer service chatbot for a Fintech SaaS platform utilizing the Google Gemini API and Qdrant for document storage.
 
 ## Business & Product Flow (Overview)
 
-Below is a simplified view of how information flows through the Fintech RAG Chatbot system, designed for product managers and operations:
+Below is a simplified view of how information flows through the RAG Chatbot system, designed for product managers and operations:
 
 ```mermaid
 flowchart TD
@@ -198,7 +198,7 @@ sequenceDiagram
 
 4. **Build and Deploy the FastAPI Web Server**:
    ```bash
-   docker build -t fintech-rag-chatbot:latest .
+   docker build -t rag-chatbot:latest .
    kubectl apply -f k8s/backend-deployment.yaml
    ```
 

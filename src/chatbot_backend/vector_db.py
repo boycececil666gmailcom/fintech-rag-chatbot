@@ -18,7 +18,7 @@ def get_vector_store():
     global vector_store, init_error, embeddings, sparse_embeddings
     if vector_store is not None:
         return vector_store
-        
+    #we need gemini api key to access the embedding model
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY is not configured in the environment variables.")
         

@@ -3,5 +3,5 @@ kind: Namespace
 metadata:
   name: fintech-chatbot
   labels:
-    app.kubernetes.io/name: fintech-rag-chatbot
+    app.kubernetes.io/name: rag-chatbot
     environment: production
