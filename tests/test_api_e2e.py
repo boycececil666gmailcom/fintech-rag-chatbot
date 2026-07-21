@@ -30,11 +30,12 @@ def test_full_e2e_flow(mock_llm):
     assert ingest_response.json()["chunk_count"] > 0
 
     # 2. Query chatbot via API Gateway
-    # Mock LLM nodes sequentially: RAG QA -> Critique (Classifier is now vector-similarity based, no LLM call)
+    # Mock LLM nodes sequentially: Routing -> RAG QA -> Critique
+    mock_resp_routing = MagicMock(content='rag')
     mock_resp_qa = MagicMock(content='The Supernova project is a next generation security scanning system.')
-    mock_resp_crit = MagicMock(content='{"status": "PASS"}')
+    mock_resp_crit = MagicMock(content='PASS')
     
-    mock_llm.invoke.side_effect = [mock_resp_qa, mock_resp_crit]
+    mock_llm.invoke.side_effect = [mock_resp_routing, mock_resp_qa, mock_resp_crit]
 
     query_payload = {
         "message": "What is the Supernova project?"

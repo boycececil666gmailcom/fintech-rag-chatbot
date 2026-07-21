@@ -19,11 +19,11 @@ flowchart TD
     %% Main customer interaction entry point
     Client(["📱 Client App / Customer"]):::client
     
-    Client -->|"1. Submits chat query"| Classifier{"🤖 Classifier Node (Gemini)"}:::router
+    Client -->|"1. Submits chat query"| Routing{"🤖 Routing Node (Gemini)"}:::router
     
-    %% Classifier branches
-    Classifier -->|"Theme Query (rag)"| QA["🔍 RAG QA Node"]:::process
-    Classifier -->|"General Query (refuse)"| Safeguard["🛡️ Safeguard Node"]:::block
+    %% Routing branches
+    Routing -->|"Theme Query (rag)"| QA["🔍 RAG QA Node"]:::process
+    Routing -->|"General Query (refuse)"| Refusal["🛡️ Refusal Node"]:::block
     
     %% Qdrant DB Retrieval
     QA -->|"Retrieve context"| DB[("📚 Knowledge Base (Qdrant)")]:::kb
@@ -31,11 +31,11 @@ flowchart TD
     
     %% Critique verification
     QA -->|"2. Draft response"| Critique{"🔎 Critique Node (Groundedness Check)"}:::router
-    Safeguard -->|"Polite refusal draft"| Critique
+    Refusal -->|"Polite refusal draft"| Critique
     
     %% Critique outcomes
     Critique -->|"PASS (or Max 3 Attempts)"| VerifiedReply["Verified Answer"]:::reply
-    Critique -->|"FAIL (Loop back to refine)"| Classifier
+    Critique -->|"FAIL (Loop back to refine)"| Routing
     
     VerifiedReply -->|"3. Returns response"| Client
     
@@ -73,7 +73,7 @@ The application is configured using environment variables (stored locally in a `
 | `HOST` | FastAPI server bind address | `0.0.0.0` |
 | `QDRANT_URL` | URL to access the Qdrant database instance (e.g. `http://localhost:6333` or `:memory:`) | *(Required)* |
 | `QDRANT_API_KEY` | Optional API Key if using Qdrant Cloud | `None` |
-| `CHATBOT_THEME` | The primary theme boundary for retrieval routing & safeguards | `Fintech SaaS platform` |
+| `CHATBOT_THEME` | The primary theme boundary for retrieval routing & refusals | `Fintech SaaS platform` |
 
 ---
 
@@ -105,21 +105,21 @@ flowchart TD
         style LangGraph fill:#f0f7ff,stroke:#2563eb,stroke-width:3px,stroke-dasharray: 5 5;
         
         Graph[Agent Coordinator]:::lgNode
-        Classifier{Classifier Node}:::decision
+        Routing{Routing Node}:::decision
         QA[RAG QA Node]:::lgNode
-        Safeguard[Safeguard Node]:::lgNode
+        Refusal[Refusal Node]:::lgNode
         Critique[Critique Node]:::lgNode
         End([End & Return]):::endNode
         
-        Graph --> Classifier
-        Classifier -->|rag| QA
-        Classifier -->|refuse| Safeguard
+        Graph --> Routing
+        Routing -->|rag| QA
+        Routing -->|refuse| Refusal
         
         QA --> Critique
-        Safeguard --> Critique
+        Refusal --> Critique
         
         Critique -->|PASS / Max Attempts| End
-        Critique -->|FAIL| Classifier
+        Critique -->|FAIL| Routing
     end
     
     Query --> Graph
@@ -163,9 +163,9 @@ sequenceDiagram
     actor User
     participant App as FastAPI Server (main.py)
     participant Graph as LangGraph Agent (agent_flow)
-    participant Classifier as Classifier Node (Embeddings)
+    participant Routing as Routing Node (Gemini)
     participant QA as RAG QA Node (Gemini)
-    participant Safeguard as Safeguard Node (Gemini)
+    participant Refusal as Refusal Node (Gemini)
     participant Critique as Critique Node (Gemini)
     participant VectorStore as Qdrant DB
 
@@ -173,8 +173,8 @@ sequenceDiagram
     App->>Graph: ainvoke(state)
     
     loop Max 3 attempts
-        Graph->>Classifier: Determine category (rag / refuse)
-        Classifier-->>Graph: Category result
+        Graph->>Routing: Determine category (rag / refuse)
+        Routing-->>Graph: Category result
         
         alt Path A: category is 'rag'
             rect rgb(224, 242, 254)
@@ -185,8 +185,8 @@ sequenceDiagram
             end
         else Path B: category is 'refuse'
             rect rgb(254, 226, 226)
-                Graph->>Safeguard: Generate polite refusal response
-                Safeguard-->>Graph: draft_response
+                Graph->>Refusal: Generate polite refusal response
+                Refusal-->>Graph: draft_response
             end
         end
         
@@ -200,7 +200,7 @@ sequenceDiagram
         else Validation Fails
             rect rgb(254, 226, 226)
                 Critique-->>Graph: Status: FAIL (Reason details)
-                Note over Graph: Increment attempts & loop back to Classifier
+                Note over Graph: Increment attempts & loop back to Routing
             end
         end
     end

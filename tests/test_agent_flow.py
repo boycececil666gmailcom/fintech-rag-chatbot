@@ -2,23 +2,22 @@ import pytest
 from unittest.mock import patch, MagicMock
 from src.theme_based_rag_backend.agent_flow import (
     AgentState,
-    classifier_node,
+    routing_node,
     rag_qa_node,
-    safeguard_node,
+    refusal_node,
     critique_node,
     route_by_category,
     route_after_critique,
     agent_graph
 )
 
-# Test classifier_node
-@patch("src.theme_based_rag_backend.vector_db.embeddings")
-def test_classifier_node_rag(mock_embeddings):
-    """Test that classifier_node classifies query as 'rag' when cosine similarity is high (>= 0.65)."""
-    import src.theme_based_rag_backend.agent_flow.nodes.classifier as classifier_module
-    classifier_module.theme_embedding_cached = None
-    
-    mock_embeddings.embed_query.return_value = [1.0, 0.0]
+# Test routing_node
+@patch("src.theme_based_rag_backend.agent_flow.llm")
+def test_routing_node_rag(mock_llm):
+    """Test that routing_node classifies query as 'rag' when LLM returns 'rag'."""
+    mock_response = MagicMock()
+    mock_response.content = "rag"
+    mock_llm.invoke.return_value = mock_response
 
     state: AgentState = {
         "message": "Relevant Fintech SaaS platform question",
@@ -29,16 +28,15 @@ def test_classifier_node_rag(mock_embeddings):
         "critique_feedback": None,
         "attempts": 0
     }
-    result = classifier_node(state)
+    result = routing_node(state)
     assert result == {"category": "rag"}
 
-@patch("src.theme_based_rag_backend.vector_db.embeddings")
-def test_classifier_node_refuse(mock_embeddings):
-    """Test that classifier_node classifies query as 'refuse' when cosine similarity is low (< 0.65)."""
-    import src.theme_based_rag_backend.agent_flow.nodes.classifier as classifier_module
-    classifier_module.theme_embedding_cached = None
-    
-    mock_embeddings.embed_query.side_effect = [[1.0, 0.0], [0.0, 1.0]]
+@patch("src.theme_based_rag_backend.agent_flow.llm")
+def test_routing_node_refuse(mock_llm):
+    """Test that routing_node classifies query as 'refuse' when LLM returns 'refuse'."""
+    mock_response = MagicMock()
+    mock_response.content = "refuse"
+    mock_llm.invoke.return_value = mock_response
 
     state: AgentState = {
         "message": "Unrelated question",
@@ -49,13 +47,13 @@ def test_classifier_node_refuse(mock_embeddings):
         "critique_feedback": None,
         "attempts": 0
     }
-    result = classifier_node(state)
+    result = routing_node(state)
     assert result == {"category": "refuse"}
 
-@patch("src.theme_based_rag_backend.vector_db.embeddings")
-def test_classifier_node_fallback(mock_embeddings):
-    """Test that classifier_node falls back to 'refuse' when an embedding exception occurs."""
-    mock_embeddings.embed_query.side_effect = Exception("API error")
+@patch("src.theme_based_rag_backend.agent_flow.llm")
+def test_routing_node_fallback(mock_llm):
+    """Test that routing_node falls back to 'refuse' when an LLM exception occurs."""
+    mock_llm.invoke.side_effect = Exception("API error")
 
     state: AgentState = {
         "message": "Query message",
@@ -66,13 +64,13 @@ def test_classifier_node_fallback(mock_embeddings):
         "critique_feedback": None,
         "attempts": 0
     }
-    result = classifier_node(state)
+    result = routing_node(state)
     assert result == {"category": "refuse"}
 
-# Test safeguard_node
+# Test refusal_node
 @patch("src.theme_based_rag_backend.agent_flow.llm")
-def test_safeguard_node(mock_llm):
-    """Test that safeguard_node generates a standard refusal/guardrails message for queries classified under the 'refuse' category."""
+def test_refusal_node(mock_llm):
+    """Test that refusal_node generates a standard refusal/guardrails message for queries classified under the 'refuse' category."""
     mock_response = MagicMock()
     mock_response.content = "I can only assist with Fintech SaaS platform questions."
     mock_llm.invoke.return_value = mock_response
@@ -86,7 +84,7 @@ def test_safeguard_node(mock_llm):
         "critique_feedback": None,
         "attempts": 0
     }
-    result = safeguard_node(state)
+    result = refusal_node(state)
     assert result == {"draft_response": "I can only assist with Fintech SaaS platform questions."}
 
 # Test rag_qa_node
@@ -245,11 +243,12 @@ async def test_agent_graph_e2e(mock_llm, mock_retrieve):
     """Test that the compiled LangGraph agent workflow functions correctly end-to-end from classification to final approved response."""
     mock_retrieve.invoke.return_value = "Retrieved documents"
     
-    # Mock LLM calls: RAG QA -> Critique (Classifier is now vector-similarity based, no LLM call)
+    # Mock LLM calls: Routing -> RAG QA -> Critique
+    mock_resp_routing = MagicMock(content='rag')
     mock_resp_qa = MagicMock(content='Draft Response text')
     mock_resp_crit = MagicMock(content="PASS")
     
-    mock_llm.invoke.side_effect = [mock_resp_qa, mock_resp_crit]
+    mock_llm.invoke.side_effect = [mock_resp_routing, mock_resp_qa, mock_resp_crit]
     
     inputs = {
         "message": "User question",

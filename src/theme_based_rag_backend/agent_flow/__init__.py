@@ -14,9 +14,9 @@ llm = ChatGoogleGenerativeAI(
 
 from src.theme_based_rag_backend.agent_flow.state import AgentState
 from src.theme_based_rag_backend.agent_flow.nodes import (
-    classifier_node,
+    routing_node,
     rag_qa_node,
-    safeguard_node,
+    refusal_node,
     critique_node
 )
 from src.theme_based_rag_backend.agent_flow.edges import (

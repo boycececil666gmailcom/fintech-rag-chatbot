@@ -42,7 +42,7 @@ def test_k8s_real_e2e_flow():
     assert "retrieve_local_documents" in res_query["tool_calls_executed"]
     assert "Aurora Project" in res_query["retrieved_documents"]
     
-    # 3. Query chatbot with off-theme query (should trigger refusal safeguard)
+    # 3. Query chatbot with off-theme query (should trigger refusal node)
     refusal_payload = {
         "message": "How do I make a chocolate cake?"
     }

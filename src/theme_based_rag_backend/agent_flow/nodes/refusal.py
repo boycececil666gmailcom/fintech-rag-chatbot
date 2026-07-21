@@ -2,10 +2,10 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from src.theme_based_rag_backend.config import CHATBOT_THEME
 from src.theme_based_rag_backend.agent_flow.state import AgentState
 
-def safeguard_node(state: AgentState) -> dict:
+def refusal_node(state: AgentState) -> dict:
     from src.theme_based_rag_backend.agent_flow import llm
     print(f"\n\033[1;96m========================================================\033[0m")
-    print(f"\033[1;92m>>> [Agent Flow] Executing Safeguard refusal\033[0m")
+    print(f"\033[1;92m>>> [Agent Flow] Executing Refusal generator\033[0m")
     print(f"\033[1;96m========================================================\033[0m\n")
     
     refusal_prompt = (

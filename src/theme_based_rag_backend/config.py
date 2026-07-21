@@ -26,3 +26,8 @@ QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 # Chatbot Theme setting
 CHATBOT_THEME = os.getenv("CHATBOT_THEME", "Fintech SaaS platform")
 
+# Force RAG keywords (comma-separated, case-insensitive)
+FORCE_RAG_KEYWORDS = [
+    kw.strip().lower() for kw in os.getenv("FORCE_RAG_KEYWORDS", "quoos").split(",") if kw.strip()
+]
+
