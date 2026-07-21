@@ -48,6 +48,18 @@ spec:
               value: "8080"
             - name: ALLOWED_ORIGINS
               value: "*"
+            # LangSmith Tracing Configuration
+            - name: LANGSMITH_TRACING
+              value: "true"
+            - name: LANGSMITH_ENDPOINT
+              value: "https://api.smith.langchain.com"
+            - name: LANGSMITH_PROJECT
+              value: "theme-based-rag-gateway-service"
+            - name: LANGSMITH_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: langsmith-secrets
+                  key: langchain-api-key
           livenessProbe:
             httpGet:
               path: /health
