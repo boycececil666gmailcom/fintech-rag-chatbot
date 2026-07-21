@@ -13,6 +13,9 @@ spec:
     - port: 6334
       targetPort: 6334
       name: grpc
+    - port: 6335
+      targetPort: 6335
+      name: cluster
   # Headless service ensures stable DNS mapping (qdrant-0.qdrant-service)
   clusterIP: None
   selector:
@@ -25,7 +28,7 @@ metadata:
   namespace: theme-based-rag-workflow
 spec:
   serviceName: "qdrant-service"
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: qdrant
@@ -38,11 +41,24 @@ spec:
         - name: qdrant
           image: qdrant/qdrant:latest
           imagePullPolicy: IfNotPresent
+          command:
+            - "sh"
+            - "-c"
+            - "exec /qdrant/qdrant --uri http://$(POD_NAME).qdrant-service.theme-based-rag-workflow.svc.cluster.local:6335 --bootstrap http://qdrant-0.qdrant-service.theme-based-rag-workflow.svc.cluster.local:6335"
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: QDRANT__CLUSTER__ENABLED
+              value: "true"
           ports:
             - containerPort: 6333
               name: http
             - containerPort: 6334
               name: grpc
+            - containerPort: 6335
+              name: cluster
           livenessProbe:
             httpGet:
               path: /
