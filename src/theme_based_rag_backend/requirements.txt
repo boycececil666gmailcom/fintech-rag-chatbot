@@ -8,4 +8,6 @@ langchain-qdrant
 fastembed
 flashrank
 langchain-google-genai
+langsmith
+
 
