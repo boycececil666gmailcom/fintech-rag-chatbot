@@ -1,10 +1,40 @@
 # Theme-Based RAG Workflow
 
-A modular, stateless Retrieval-Augmented Generation (RAG) customer service chatbot utilizing the Google Gemini API and Qdrant for document storage.
+A modular, stateless Retrieval-Augmented Generation (RAG) customer service chatbot utilizing the Google Gemini API, LangGraph agent orchestration, and Qdrant for document vector storage.
 
-## Business & Product Flow (Overview)
+---
 
-Below is a simplified view of how information flows through the Theme-Based RAG Workflow system, designed for product managers and operations:
+## 1. Executive Summary & Technology Stack
+
+### Business Overview
+The **Theme-Based RAG Workflow** is an enterprise-grade customer service chatbot system designed to deliver strictly grounded, accurate responses while preventing off-topic queries and AI hallucinations. 
+
+- **Topic Boundaries**: Automatically enforces business domain boundaries (e.g., Fintech SaaS platform documentation) by routing off-theme queries to a dedicated refusal engine.
+- **Self-Correcting Groundedness Verification**: Incorporates a self-critique agent loop that evaluates answer candidates against retrieved context before presenting them to customers.
+- **Enterprise Ingestion Pipeline**: Ingests company documentation into a high-performance vector store with hybrid dense (semantic) and sparse (keyword) indexing.
+
+### Technical Overview
+Built on a microservice architecture separating an API Gateway proxy (`theme_based_rag_gateway`) from the core RAG execution engine (`theme_based_rag_backend`). The system utilizes LangGraph for state management, combining hybrid Qdrant search with FlashRank neural reranking for passage retrieval.
+
+### Technology Stack & Dependencies
+
+* ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white) **Python 3.10+**: Core programming environment and runtime.
+* ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white) **FastAPI**: Asynchronous web framework used for the API Gateway and backend services.
+* ![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white) **LangGraph**: Framework for orchestrating stateful, multi-node agent loops, conditional routing, and critique workflows.
+* ![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white) **LangChain**: Framework for text chunking (`RecursiveCharacterTextSplitter`), document abstractions, and model integrations.
+* ![Google Gemini](https://img.shields.io/badge/Google_Gemini-4285F4?style=for-the-badge&logo=google-gemini&logoColor=white) **Google Gemini API**: Powers LLM decision-making (`gemini-3.1-flash-lite`) and dense text embeddings (`gemini-embedding-001`).
+* ![Qdrant](https://img.shields.io/badge/Qdrant-DC2626?style=for-the-badge&logo=qdrant&logoColor=white) **Qdrant Vector DB**: Vector store supporting hybrid dense-sparse retrieval and payload filtering.
+* ![FastEmbed](https://img.shields.io/badge/FastEmbed_BM25-FF6F00?style=for-the-badge&logo=python&logoColor=white) **FastEmbed BM25**: Fast lexical embedding engine for sparse keyword matching (`Qdrant/bm25`).
+* ![FlashRank](https://img.shields.io/badge/FlashRank-000000?style=for-the-badge&logo=lightning&logoColor=white) **FlashRank**: Ultra-fast neural reranking model used to rerank retrieved document passages.
+* ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white) **Docker**: Containerization infrastructure for Qdrant and microservice deployment.
+* ![Uvicorn](https://img.shields.io/badge/Uvicorn-4053D6?style=for-the-badge&logo=python&logoColor=white) **Uvicorn**: Production-ready ASGI server implementation powering FastAPI endpoints.
+* ![HTTPX](https://img.shields.io/badge/HTTPX-5B60EA?style=for-the-badge&logo=python&logoColor=white) **HTTPX**: Asynchronous HTTP client powering the gateway proxy routing layer.
+
+---
+
+## 2. Business Flow Overview
+
+Below is a simplified operational workflow designed for business managers and product stakeholders, illustrating how customer queries and knowledge base updates move through the system without technical jargon:
 
 ```mermaid
 flowchart TD
@@ -15,253 +45,200 @@ flowchart TD
     classDef reply fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#166534;
     classDef block fill:#fee2e2,stroke:#b91c1c,stroke-width:2px,color:#991b1b;
     classDef process fill:#f9fafb,stroke:#d1d5db,stroke-width:1px,color:#374151;
+
+    %% Client App / Customer Entry
+    Customer(["📱 Customer / App User"]):::client
     
-    %% Main customer interaction entry point
-    Client(["📱 Client App / Customer"]):::client
+    Customer -->|"1. Submits customer support question"| TopicCheck{"🤖 AI Intent Classifier<br/>(Check if query matches business domain)"}:::router
     
-    Client -->|"1. Submits chat query"| Routing{"🤖 Routing Node (Gemini)"}:::router
+    %% Routing Decision Branches
+    TopicCheck -->|"Topic matches business domain"| SearchKB["🔍 Search Company Knowledge Base"]:::process
+    TopicCheck -->|"Topic outside business domain"| DraftRefusal["🛡️ Prepare Polite Refusal Message"]:::block
     
-    %% Routing branches
-    Routing -->|"Theme Query (rag)"| QA["🔍 RAG QA Node"]:::process
-    Routing -->|"General Query (refuse)"| Refusal["🛡️ Refusal Node"]:::block
+    %% Knowledge Base Search
+    SearchKB -->|"Retrieve context documents"| KnowledgeBase[("📚 Knowledge Base Vector Store")]:::kb
+    KnowledgeBase -->|"Return matching document passages"| GenerateAnswer["✍️ Draft Answer Using Document Context"]:::process
     
-    %% Qdrant DB Retrieval
-    QA -->|"Retrieve context"| DB[("📚 Knowledge Base (Qdrant)")]:::kb
-    DB -->|"Return source text"| QA
+    %% Quality Control Check
+    GenerateAnswer -->|"2. Draft answer ready"| QualityCheck{"🔎 Quality & Groundedness Checker<br/>(Verify zero hallucination)"}:::router
+    DraftRefusal -->|"Refusal draft ready"| QualityCheck
     
-    %% Critique verification
-    QA -->|"2. Draft response"| Critique{"🔎 Critique Node (Groundedness Check)"}:::router
-    Refusal -->|"Polite refusal draft"| Critique
+    %% Quality Outcomes
+    QualityCheck -->|"Passes verification check"| FinalAnswer["✅ Verified Helpful Answer"]:::reply
+    QualityCheck -->|"Fails verification (Information unverified)"| TopicCheck
     
-    %% Critique outcomes
-    Critique -->|"PASS (or Max 3 Attempts)"| VerifiedReply["Verified Answer"]:::reply
-    Critique -->|"FAIL (Loop back to refine)"| Routing
-    
-    VerifiedReply -->|"3. Returns response"| Client
+    FinalAnswer -->|"3. Send final answer back to customer"| Customer
     
     %% Ingestion background flow
-    subgraph Ingestion ["Knowledge Ingestion (Offline Feed)"]
-        style Ingestion fill:#f9fafb,stroke:#d1d5db,stroke-width:1px;
-        Admin(["Product / Ops Admin"]):::client -->|"Uploads FAQs & Guides"| Split["✂️ Text Splitter"]:::process
-        Split -->|"Generate Dense & Sparse Embeddings"| DB
+    subgraph DocumentIngestion ["Document Ingestion Flow (Offline Updates)"]
+        style DocumentIngestion fill:#f9fafb,stroke:#d1d5db,stroke-width:1px;
+        OpsAdmin(["👤 Operations / Content Admin"]):::client -->|"Uploads new FAQs & User Guides"| TextSplitter["✂️ Break Documents into Small Passages"]:::process
+        TextSplitter -->|"Generate Dense Semantic & Keyword Embeddings"| KnowledgeBase
     end
 ```
 
 ---
 
-## Features & API Endpoints
+## 3. Technical System Architecture
 
-The backend exposes two main HTTP POST endpoints under FastAPI:
-
-- **`POST /ingest`**: Accepts raw text documents, splits them into manageable chunks (using `RecursiveCharacterTextSplitter`), generates dense/sparse embeddings, and stores them in the Qdrant database.
-- **`POST /query`**: Accepts user queries and conversation history. An LLM agent routes queries to retrieve platform documentation from Qdrant. If the query does not match the configured theme, direct generation is refused to keep responses strictly grounded.
-- **`GET /health`**: Performs liveness checks, confirming connection to the vector store downstream.
-
----
-
-## Configuration
-
-The application is configured using environment variables (stored locally in a `.env` file).
-
-| Environment Variable | Description | Default Value |
-| :--- | :--- | :--- |
-| `GEMINI_API_KEY` | Google Gemini API credentials | *(Required)* |
-| `GEMINI_MODEL` | Gemini LLM model for routing and synthesis | `gemini-3.1-flash-lite` |
-| `GEMINI_EMBED_MODEL` | Google Generative AI embeddings model | `gemini-embedding-001` |
-| `GEMINI_TEMPERATURE` | Generation temperature (0.0 for deterministic RAG answers) | `0.0` |
-| `PORT` | FastAPI server port for Chatbot Backend | `8000` |
-| `HOST` | FastAPI server bind address | `0.0.0.0` |
-| `QDRANT_URL` | URL to access the Qdrant database instance (e.g. `http://localhost:6333` or `:memory:`) | *(Required)* |
-| `QDRANT_API_KEY` | Optional API Key if using Qdrant Cloud | `None` |
-| `CHATBOT_THEME` | The primary theme boundary for retrieval routing & refusals | `Fintech SaaS platform` |
-
----
-
-## Architecture & Logic Flow
-
-Below is a high-level flowchart showing how ingestion and querying are routed through the FastAPI backend:
+Below is a detailed component architecture diagram illustrating the internal modules, state graphs, data structures, and interactions between `theme_based_rag_gateway` and `theme_based_rag_backend`:
 
 ```mermaid
 flowchart TD
-    %% Styling classes
-    classDef main fill:#f9fafb,stroke:#d1d5db,stroke-width:1px,color:#374151;
-    classDef ingest fill:#ecfdf5,stroke:#10b981,stroke-width:1px,color:#065f46;
-    classDef lgNode fill:#eff6ff,stroke:#3b82f6,stroke-width:2px,color:#1e40af;
-    classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#b45309;
-    classDef endNode fill:#f3e8ff,stroke:#7e22ce,stroke-width:2px,color:#6b21a8;
+    %% Styling
+    classDef gateway fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e40af;
+    classDef backend fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#166534;
+    classDef graphNode fill:#fdf4ff,stroke:#c026d3,stroke-width:2px,color:#86198f;
+    classDef dbNode fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#9a3412;
+    classDef modelNode fill:#f8fafc,stroke:#64748b,stroke-width:1px,color:#334155;
 
-    Server[FastAPI Server]:::main
-    
-    %% Ingest path
-    Server -->|POST /ingest| Ingest[Document Ingestion Path]:::ingest
-    Ingest --> Split[RecursiveCharacterTextSplitter]:::ingest
-    Split --> Embed[Gemini Dense / FastEmbed Sparse]:::ingest
-    Embed --> DB[(Qdrant DB)]:::ingest
-
-    %% Query path
-    Server -->|POST /query| Query[Query Processing Path]:::main
-    
-    subgraph LangGraph ["🤖 LangGraph Agent Flow (Highlighted)"]
-        style LangGraph fill:#f0f7ff,stroke:#2563eb,stroke-width:3px,stroke-dasharray: 5 5;
+    subgraph GatewayModule ["API Gateway Service (src.theme_based_rag_gateway)"]
+        style GatewayModule fill:#f8fafc,stroke:#94a3b8,stroke-width:1px;
+        GatewayMain["main.py (FastAPI App)"]:::gateway
+        RouteQuery["route_query(QueryRequest)"]:::gateway
+        RouteIngest["route_ingest(IngestRequest)"]:::gateway
+        HTTPXClient["httpx.AsyncClient"]:::gateway
         
-        Graph[Agent Coordinator]:::lgNode
-        Routing{Routing Node}:::decision
-        QA[RAG QA Node]:::lgNode
-        Refusal[Refusal Node]:::lgNode
-        Critique[Critique Node]:::lgNode
-        End([End & Return]):::endNode
-        
-        Graph --> Routing
-        Routing -->|rag| QA
-        Routing -->|refuse| Refusal
-        
-        QA --> Critique
-        Refusal --> Critique
-        
-        Critique -->|PASS / Max Attempts| End
-        Critique -->|FAIL| Routing
+        GatewayMain --> RouteQuery
+        GatewayMain --> RouteIngest
+        RouteQuery --> HTTPXClient
+        RouteIngest --> HTTPXClient
     end
-    
-    Query --> Graph
-```
 
-### 1. Ingestion Path
-
-The ingestion pipeline splits input text and uploads semantic chunks (with both dense Gemini and sparse BM25 embeddings) to the Qdrant database.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Client as Client / Ingestion Script
-    participant App as FastAPI Server (main.py)
-    participant VectorStore as Qdrant DB
-
-    Client->>App: POST /ingest {"text": "...", "metadata": {...}}
-    Note over App: Chunks text using<br/>RecursiveCharacterTextSplitter
-    
-    alt Ingestion Success
-        rect rgb(220, 252, 231)
-            App->>VectorStore: Add document chunks (Dense + Sparse embeddings)
-            VectorStore-->>App: Confirmation
-            App-->>Client: Response {"status": "success", "chunk_count": X}
-        end
-    else Ingestion Failure (Database Offline / Missing Credentials)
-        rect rgb(254, 226, 226)
-            App->>VectorStore: Connection Error / Missing Key
-            App-->>Client: HTTP 500 Internal Server Error
-        end
-    end
-```
-
-### 2. Query Path
-
-When a query is received, the request is dispatched to a stateful LangGraph agent workflow containing dynamic classification, generation nodes, and grounding evaluation:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant App as FastAPI Server (main.py)
-    participant Graph as LangGraph Agent (agent_flow)
-    participant Routing as Routing Node (Gemini)
-    participant QA as RAG QA Node (Gemini)
-    participant Refusal as Refusal Node (Gemini)
-    participant Critique as Critique Node (Gemini)
-    participant VectorStore as Qdrant DB
-
-    User->>App: POST /query {"message": "...", "history": [...]}
-    App->>Graph: ainvoke(state)
-    
-    loop Max 3 attempts
-        Graph->>Routing: Determine category (rag / refuse)
-        Routing-->>Graph: Category result
+    subgraph BackendModule ["Core RAG Backend Service (src.theme_based_rag_backend)"]
+        style BackendModule fill:#f8fafc,stroke:#94a3b8,stroke-width:1px;
+        BackendMain["main.py (FastAPI App)"]:::backend
+        RunQuery["run_query(QueryRequest)"]:::backend
+        IngestDoc["ingest_document(IngestRequest)"]:::backend
         
-        alt Path A: category is 'rag'
-            rect rgb(224, 242, 254)
-                Graph->>VectorStore: retrieve_local_documents
-                VectorStore-->>Graph: Chunks & FlashRank Reranked Docs
-                Graph->>QA: Generate draft response using retrieved docs
-                QA-->>Graph: draft_response
-            end
-        else Path B: category is 'refuse'
-            rect rgb(254, 226, 226)
-                Graph->>Refusal: Generate polite refusal response
-                Refusal-->>Graph: draft_response
-            end
+        BackendMain --> RunQuery
+        BackendMain --> IngestDoc
+        
+        subgraph VectorStoreModule ["Vector DB Pipeline (vector_db.py)"]
+            style VectorStoreModule fill:#fff7ed,stroke:#fdba74,stroke-width:1px;
+            GetVS["get_vector_store()"]:::dbNode
+            AddDocText["add_document_text(text, metadata)"]:::dbNode
+            Splitter["RecursiveCharacterTextSplitter"]:::dbNode
+            DenseEmbed["GoogleGenerativeAIEmbeddings<br/>(gemini-embedding-001)"]:::dbNode
+            SparseEmbed["FastEmbedSparse<br/>(Qdrant/bm25)"]:::dbNode
+            QdrantStore["QdrantVectorStore<br/>(collection: local_rag_documents)"]:::dbNode
+            
+            AddDocText --> Splitter
+            Splitter --> QdrantStore
+            GetVS --> DenseEmbed
+            GetVS --> SparseEmbed
+            GetVS --> QdrantStore
         end
         
-        Graph->>Critique: Evaluate draft_response (groundedness / theme-adherence)
-        
-        alt Validation Passes (or max attempts reached)
-            rect rgb(220, 252, 231)
-                Critique-->>Graph: Status: PASS
-                Note over Graph: Exit loop
-            end
-        else Validation Fails
-            rect rgb(254, 226, 226)
-                Critique-->>Graph: Status: FAIL (Reason details)
-                Note over Graph: Increment attempts & loop back to Routing
-            end
+        subgraph LangGraphAgent ["Agent Execution Graph (agent_flow/graph.py)"]
+            style LangGraphAgent fill:#fdf4ff,stroke:#f0abfc,stroke-width:2px;
+            State["AgentState (TypedDict)"]:::graphNode
+            CompiledGraph["agent_graph (Compiled StateGraph)"]:::graphNode
+            
+            RoutingNode["routing_node(AgentState)"]:::graphNode
+            RAGQANode["rag_qa_node(AgentState)"]:::graphNode
+            RefusalNode["refusal_node(AgentState)"]:::graphNode
+            CritiqueNode["critique_node(AgentState)"]:::graphNode
+            
+            RouteEdge["route_by_category(AgentState)"]:::graphNode
+            CritiqueEdge["route_after_critique(AgentState)"]:::graphNode
+            
+            RetrieveTool["tools.retrieve_local_documents"]:::graphNode
+            FlashRankRerank["flashrank.Ranker"]:::graphNode
+
+            CompiledGraph --> RoutingNode
+            RoutingNode --> RouteEdge
+            RouteEdge -->|"rag"| RAGQANode
+            RouteEdge -->|"refuse"| RefusalNode
+            RAGQANode --> RetrieveTool
+            RetrieveTool --> GetVS
+            RetrieveTool --> FlashRankRerank
+            RAGQANode --> CritiqueNode
+            RefusalNode --> CritiqueNode
+            CritiqueNode --> CritiqueEdge
+            CritiqueEdge -->|"approved"| ENDNode([END]):::graphNode
+            CritiqueEdge -->|"rejected"| RoutingNode
         end
     end
-    
-    Graph-->>App: Final state result
-    App-->>User: Response {"response": "...", "tool_calls_executed": [...]}
+
+    HTTPXClient -->|"POST /query"| RunQuery
+    HTTPXClient -->|"POST /ingest"| IngestDoc
+    RunQuery --> CompiledGraph
+    IngestDoc --> AddDocText
 ```
 
 ---
 
-## Local Development Setup
+## 4. Technical Sequence & Business Logic Execution
 
-To run the chatbot and api gateway services locally on your machine, follow these steps:
+Below is a sequence diagram detailing the end-to-end execution flow across exact class names, function calls, and data transitions, highlighting conditional logic branches with colorized alternative blocks:
 
-### Prerequisites
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as Client / Mobile App
+    participant Gateway as src.theme_based_rag_gateway.main
+    participant Backend as src.theme_based_rag_backend.main
+    participant Graph as agent_flow.graph.agent_graph
+    participant Routing as agent_flow.nodes.routing_node
+    participant QA as agent_flow.nodes.rag_qa_node
+    participant Tool as tools.retrieve_local_documents
+    participant DB as vector_db.get_vector_store
+    participant Refusal as agent_flow.nodes.refusal_node
+    participant Critique as agent_flow.nodes.critique_node
+    participant Edges as agent_flow.edges.routing
 
-- Python 3.10 or higher
-- Docker Desktop (required to run Qdrant database locally)
+    Client->>Gateway: POST /query (QueryRequest)
+    Gateway->>Backend: httpx.AsyncClient.post("/query", QueryRequest)
+    Backend->>Graph: agent_graph.ainvoke(AgentState)
+    
+    loop Execution Loop (Max 3 attempts)
+        Graph->>Routing: routing_node(AgentState)
+        Note over Routing: LLM classifies query category ("rag" or "refuse")
+        Routing-->>Graph: returns {"category": category}
+        
+        Graph->>Edges: route_by_category(AgentState)
+        
+        alt Path A: Category is 'rag' (Domain-related query)
+            rect rgb(224, 242, 254)
+                Edges-->>Graph: returns "rag"
+                Graph->>QA: rag_qa_node(AgentState)
+                QA->>Tool: retrieve_local_documents.invoke(query)
+                Tool->>DB: QdrantVectorStore.similarity_search_with_score()
+                DB-->>Tool: Raw doc passages
+                Note over Tool: FlashRank.Ranker.rerank() top passages
+                Tool-->>QA: Filtered & Reranked doc context string
+                Note over QA: LLM synthesizes answer using retrieved docs
+                QA-->>Graph: returns {"draft_response": content, "retrieved_documents": docs}
+            end
+        else Path B: Category is 'refuse' (Off-theme query)
+            rect rgb(254, 226, 226)
+                Edges-->>Graph: returns "refuse"
+                Graph->>Refusal: refusal_node(AgentState)
+                Note over Refusal: LLM generates polite refusal response
+                Refusal-->>Graph: returns {"draft_response": content}
+            end
+        end
 
-### 1. Environment Setup
+        Graph->>Critique: critique_node(AgentState)
+        Note over Critique: LLM verifies groundedness & refusal compliance
+        
+        alt Validation Status: PASS
+            rect rgb(220, 252, 231)
+                Critique-->>Graph: returns {"critique_feedback": "PASS"}
+                Graph->>Edges: route_after_critique(AgentState)
+                Edges-->>Graph: returns "approved" -> Exit Loop to END
+            end
+        else Validation Status: FAIL (And attempts < 3)
+            rect rgb(254, 243, 199)
+                Critique-->>Graph: returns {"critique_feedback": reason, "attempts": attempts + 1}
+                Graph->>Edges: route_after_critique(AgentState)
+                Edges-->>Graph: returns "rejected" -> Loop back to routing_node
+            end
+        end
+    end
 
-Configure your Python environment and dependencies:
-```bash
-./setup_env.sh
-```
-Or manually:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### 2. Configure Environment Variables
-
-Create a `.env` file in the root directory:
-```env
-GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-3.1-flash-lite
-QDRANT_URL=http://localhost:6333
-CHATBOT_THEME=Fintech SaaS platform
-```
-
-### 3. Run Qdrant Database
-
-Start a local instance of Qdrant Vector DB:
-```bash
-docker run -d -p 6333:6333 -p 6334:6334 -v $(pwd)/qdrant_storage:/qdrant/storage qdrant/qdrant:latest
-```
-
-### 4. Start Chatbot Backend
-
-Run the backend API (FastAPI) on port 8000:
-```bash
-# Ensure virtualenv is active
-python -m uvicorn src.theme_based_rag_backend.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-### 5. Start API Gateway
-
-Run the gateway API (FastAPI proxy) on port 8080:
-```bash
-# Ensure virtualenv is active
-python -m uvicorn src.theme_based_rag_gateway.main:app --host 0.0.0.0 --port 8080 --reload
+    Graph-->>Backend: Final AgentState result
+    Backend-->>Gateway: QueryResponse(response, tool_calls_executed, retrieved_documents)
+    Gateway-->>Client: HTTP 200 OK (QueryResponse JSON)
 ```
