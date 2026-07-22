@@ -58,6 +58,32 @@ async def run_query(request: QueryRequest):
         raise HTTPException(status_code=500, detail=f"Query execution error: {str(e)}")
 
 
+@app.post("/jira/ingest")
+async def ingest_jira_tickets(keys: Optional[List[str]] = None):
+    """Ingests JIRA tickets into Qdrant using summary and description fields."""
+    try:
+        from src.theme_based_rag_backend.jira_exporter_adapter import get_mock_jira_tickets, JiraConfig, JiraExporter
+        tickets = []
+        if keys:
+            try:
+                config = JiraConfig.from_file()
+                exporter = JiraExporter(config)
+                tickets = exporter.export_tickets(keys)
+            except Exception as e:
+                logger.warning(f"Could not fetch live JIRA tickets ({e}). Using mock dataset...")
+                tickets = get_mock_jira_tickets()
+        else:
+            tickets = get_mock_jira_tickets()
+
+        count = db.add_jira_tickets(tickets)
+        return {"status": "success", "ingested_tickets_count": count}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 @app.get("/health")
 async def health_check():
     try:

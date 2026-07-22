@@ -20,12 +20,11 @@ def routing_node(state: AgentState) -> dict:
         
         system_prompt = (
             f"You are a routing agent for a customer service chatbot.\n"
-            f"Your task is to classify whether a user query is related to the theme: '{CHATBOT_THEME}'.\n"
-            f"Queries referencing the following proprietary or theme-specific keywords should also be routed as relevant: {keywords_str}.\n\n"
-            f"Classification Criteria:\n"
-            f"- 'rag': The query is related to '{CHATBOT_THEME}', financial technology, or mentions any of the theme-specific keywords ({keywords_str}).\n"
-            f"- 'refuse': The query is completely unrelated to the theme.\n\n"
-            f"Output exactly 'rag' or 'refuse'. Do not include any other explanation, text, or punctuation."
+            f"Your task is to classify the user query into one of three categories:\n"
+            f"1. 'jira_bug': The query mentions an error log, bug, JIRA ticket, issue, fix, exception, traceback, or requests bug repair/横展分析.\n"
+            f"2. 'rag': The query is related to '{CHATBOT_THEME}', financial technology, or mentions any of the theme-specific keywords ({keywords_str}).\n"
+            f"3. 'refuse': The query is completely unrelated to the theme or bug analysis.\n\n"
+            f"Output exactly 'jira_bug', 'rag', or 'refuse'. Do not include any other explanation, text, or punctuation."
         )
         
         messages = [
@@ -39,13 +38,18 @@ def routing_node(state: AgentState) -> dict:
             content = "".join(part if isinstance(part, str) else part.get("text", "") for part in content)
         
         category = content.strip().lower()
-        if "rag" in category:
+        if "jira" in category or "bug" in category:
+            category = "jira_bug"
+        elif "rag" in category:
             category = "rag"
         elif "refuse" in category:
             category = "refuse"
         else:
-            # Fallback parsing in case the LLM outputs something else
-            category = "refuse"
+            # Fallback check for bug keywords in query
+            if any(kw in query.lower() for kw in ["error", "bug", "exception", "jira", "fail", "log", "issue", "横展"]):
+                category = "jira_bug"
+            else:
+                category = "refuse"
             
     except Exception as e:
         logger.error(f"Error during LLM classification: {e}. Falling back to 'refuse'.")

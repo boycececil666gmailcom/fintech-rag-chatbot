@@ -92,6 +92,19 @@ async def route_query(request: QueryRequest):
             detail=f"Downstream service unavailable: {str(exc)}"
         )
 
+@app.post("/jira/ingest")
+async def route_jira_ingest(keys: Optional[List[str]] = None):
+    """Proxies JIRA ingestion requests downstream to backend."""
+    target_url = f"{RAG_BACKEND_URL.rstrip('/')}/jira/ingest"
+    try:
+        response = await async_client.post(target_url, json=keys or [])
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail=f"Downstream error: {response.text}")
+        return response.json()
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=503, detail=f"Downstream service unavailable: {str(exc)}")
+
+
 @app.get("/health")
 async def health_check():
     """Confirms gateway is running and pings downstream backend to verify full network connection path."""

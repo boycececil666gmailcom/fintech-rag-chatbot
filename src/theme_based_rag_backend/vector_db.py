@@ -92,3 +92,33 @@ def add_document_text(text: str, metadata: dict = None) -> int:
     ]
     store.add_documents(documents)
     return len(documents)
+
+
+def add_jira_tickets(tickets: list) -> int:
+    """
+    Converts JiraTicket list to Documents (summary + description as content)
+    and indexes them into the Qdrant hybrid vector store. Returns added count.
+    """
+    from src.theme_based_rag_backend.jira_exporter_adapter import convert_jira_ticket_to_document
+    store = get_vector_store()
+    documents = [convert_jira_ticket_to_document(ticket) for ticket in tickets]
+    if documents:
+        store.add_documents(documents)
+    return len(documents)
+
+
+def search_jira_tickets(query: str, k: int = 3) -> list[dict]:
+    """
+    Performs Qdrant Hybrid Search (Dense + BM25) over indexed JiraTickets.
+    Returns list of dicts with page_content and metadata.
+    """
+    store = get_vector_store()
+    results = store.similarity_search(query, k=k)
+    return [
+        {
+            "content": doc.page_content,
+            "metadata": doc.metadata
+        }
+        for doc in results
+    ]
+
